@@ -26,7 +26,7 @@ parse_transform(Forms, _Options) ->
 		    [{match,Line,
 		      {var,Line,'Routes'}, RoutesAst},
 		     {call,Line,
-		      {remote,Line,{atom,Line,strikead_cowboy},{atom,Line,process}},
+		      {remote,Line,{atom,Line,cowboy_extension},{atom,Line,process}},
 		      [{var,Line,'Routes'},
 		       {var,Line,'Req'},
 		       {var,Line,'State'},
