@@ -51,7 +51,7 @@ extract_webmethods(Forms) ->
 extract_webmethods(looking_for_handler, WebmethodOpts, Acc, [Form|Forms]) ->
     case Form of
 	{function, _, Name, _, _} -> 
-	    Path = strikead_cowboy:prepare_route(element(1, WebmethodOpts)),
+	    Path = cowboy_extension:prepare_route(element(1, WebmethodOpts)),
 	    
 	    {_, HTTPMethods, Produces, Output, AttributeSources} = WebmethodOpts,
 	    Route = #route{
