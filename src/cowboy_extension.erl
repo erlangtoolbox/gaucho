@@ -8,20 +8,25 @@ get_attributes(Req, Attributes) ->
     get_attributes(Req, [], Attributes).
 
 get_attributes(Req, Acc, [{Name, {body, json, ParserName}}|Attributes]) ->
-    {ok, Body, _} = cowboy_http_req:body(Req),
+    {ok, Body, Req1} = cowboy_http_req:body(Req),
     {ok, Json} = apply(ParserName, from_json, [Body,ParserName]),
     Acc1 = lists:append(Acc, [{Name, Json}]),
-    get_attributes(Req, Acc1, Attributes);
+    get_attributes(Req1, Acc1, Attributes);
 
 get_attributes(Req, Acc, [{Name, path}|Attributes]) ->
     Acc1 = lists:append(Acc, [{Name, undefined}]),
     get_attributes(Req, Acc1, Attributes);
 
-get_attributes(Req, Acc, [{Name, Spec}|Attributes]) ->
-    Acc1 = lists:append(Acc, [{Name, undefined}]),
+get_attributes(Req, Acc, [{Name, 'query'}|Attributes]) ->
+    {Value, Req1} = cowboy_http_req:qs_val(atom_to_binary(Name, utf8), Req),
+    Acc1 = lists:append(Acc, [{Name, Value}]),
+    get_attributes(Req1, Acc1, Attributes);
+
+get_attributes(Req, Acc, [{Name, _}|Attributes]) ->
+    Acc1 = lists:append(Acc, [{Name, nil}]),
     get_attributes(Req, Acc1, Attributes);
 
-get_attributes(Req, Acc, []) ->
+get_attributes(_, Acc, []) ->
     Acc.
 
 
@@ -44,21 +49,25 @@ process([Route|Routes], Req, State,  Module) ->
 			    true ->
 				PathVariables = extract_path_variables(Req, Route),
 				fill_path_variables(Variables, PathVariables);
-						%				io:format("PATH VARIABLES: ~p~n", [PathVariables]);
 			    false ->
 				Variables
 			end,
 		    Attributes = [Val||{_, Val} <- AllVariables],
 		    io:format("~p~n", [Attributes]),
 		    Result = apply(Module, Route#route.handler, Attributes),
+		    io:format("RESULT: ~p~n", [Result]),
+		    %TODO: Specify Result format
+		    %TODO: Implement Result parsing
 		    {ok, Req, State};
 		false -> 
 		    process(Routes, Req, State, Module)
 	    end
     end;
+
 process([], Req, State, _) ->
     {ok, Req1} = cowboy_http_req:reply(404, [], <<"">>, Req),
     {ok, Req1, State}.
+
 
 
 extract_path_variables(Req, Route) ->
@@ -71,10 +80,14 @@ extract_path_variables(Req, Route) ->
 	nomatch -> []
     end.
 
-fill_path_variables(Variables, [PathVariable = {Key, Value}| PathVariables]) ->
+
+
+fill_path_variables(Variables, [PathVariable = {Key, _}| PathVariables]) ->
     fill_path_variables(lists:keyreplace(Key, 1, Variables, PathVariable), PathVariables);
+
 fill_path_variables(Variables, []) ->
     Variables.
+
 
 
 prepare_route(RoutePattern) ->
@@ -91,6 +104,7 @@ prepare_route(RoutePattern) ->
     end.
 
 						%replace placeholders by its regexes
+
 replace_ph(Subject, [Head| Replacements]) ->
     Search = lists:nth(1, Head),
     Replace = case Elem = lists:nth(3, Head) of
@@ -98,8 +112,11 @@ replace_ph(Subject, [Head| Replacements]) ->
 		  _ -> Elem
 	      end,
     replace_ph(str_replace(Subject, Search, Replace), Replacements);
+
 replace_ph(Subject, []) ->
     Subject.
+
+
 
 %replace Search with Replace in Subject
 str_replace(Subject, Search, Replace) ->
