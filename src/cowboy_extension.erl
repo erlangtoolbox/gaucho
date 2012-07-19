@@ -7,24 +7,31 @@
 get_attributes(Req, Attributes) ->
     get_attributes(Req, [], Attributes).
 
-get_attributes(Req, Acc, [{Name, {body, json, ParserName}}|Attributes]) ->
-    {ok, Body, Req1} = cowboy_http_req:body(Req),
-    {ok, Json} = apply(ParserName, from_json, [Body,ParserName]),
-    Acc1 = lists:append(Acc, [{Name, Json}]),
-    get_attributes(Req1, Acc1, Attributes);
+get_attributes(_Req, _Acc, [{Name, Spec}| Attributes]) ->
+    {Value, Req} = 
+	case Spec of
+	    {body, json, ParserName} ->
+		{ok, Body, __Req} = cowboy_http_req:body(_Req),
+		{ok, Json} = apply(ParserName, from_json, [Body,ParserName]),
+		{Json, __Req};
 
-get_attributes(Req, Acc, [{Name, path}|Attributes]) ->
-    Acc1 = lists:append(Acc, [{Name, undefined}]),
-    get_attributes(Req, Acc1, Attributes);
+	    path -> 
+		{undefined, _Req};
 
-get_attributes(Req, Acc, [{Name, 'query'}|Attributes]) ->
-    {Value, Req1} = cowboy_http_req:qs_val(atom_to_binary(Name, utf8), Req),
-    Acc1 = lists:append(Acc, [{Name, Value}]),
-    get_attributes(Req1, Acc1, Attributes);
+	    'query' ->
+		cowboy_http_req:qs_val(atom_to_binary(Name, utf8), _Req);
 
-get_attributes(Req, Acc, [{Name, _}|Attributes]) ->
-    Acc1 = lists:append(Acc, [{Name, nil}]),
-    get_attributes(Req, Acc1, Attributes);
+	    cookie ->
+		cowboy_http_req:cookie(atom_to_binary(Name, utf8), _Req);
+
+	    header ->
+		cowboy_http_req:header(Name, _Req);
+	    _ -> {{Name, undefined}, _Req}
+
+	end,
+
+    Acc = lists:append(_Acc, [{Name, Value}]),
+    get_attributes(Req, Acc, Attributes);
 
 get_attributes(_, Acc, []) ->
     Acc.
