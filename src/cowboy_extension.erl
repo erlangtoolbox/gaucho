@@ -39,41 +39,47 @@ get_attributes(_, Acc, []) ->
 
 
 %find handler for rawpath
-process([Route|Routes], Req, State,  Module) ->
+process([Route|Routes], _Req, State,  Module) ->
 
-    {RawPath, _} = cowboy_http_req:raw_path(Req),
+    {RawPath, _} = cowboy_http_req:raw_path(_Req),
 
     case re:run(RawPath, Route#route.path, [{capture, all, list}]) of
 	nomatch ->
-	    process(Routes, Req, State,  Module);
+	    process(Routes, _Req, State,  Module);
 	{match, _} ->
-	    {Method, _} = cowboy_http_req:method(Req),
+	    {Method, _} = cowboy_http_req:method(_Req),
 	    case lists:member(binary_to_atom(Method, utf8), Route#route.accepted_methods) of
 		true ->
-		    Variables = get_attributes(Req, Route#route.attribute_sources),
+		    Variables = get_attributes(_Req, Route#route.attribute_sources),
 		    AllVariables  = 
 			case lists:keymember(path, 2, Route#route.attribute_sources) of
 			    true ->
-				PathVariables = extract_path_variables(Req, Route),
+				PathVariables = extract_path_variables(_Req, Route),
 				fill_path_variables(Variables, PathVariables);
 			    false ->
 				Variables
 			end,
 		    Attributes = [Val||{_, Val} <- AllVariables],
 		    io:format("~p~n", [Attributes]),
-		    Result = apply(Module, Route#route.handler, Attributes),
-		    io:format("RESULT: ~p~n", [Result]),
-		    %TODO: Specify Result format
-		    %TODO: Implement Result parsing
-		    {ok, Req, State};
+		    case apply(Module, Route#route.handler, Attributes) of
+			{ok, Body} when is_tuple(Body) ->
+			    io:format("BODY: ~p~n", [Body]),
+			    Json = apply(element(1, Body), to_json, [Body]),
+			    {ok, Req} = cowboy_http_req:reply(200, [], Json, _Req),
+			    {ok, Req, 200};
+			{Status, Message} -> 
+			    {ok, Req} = cowboy_http_req:reply(Status, [], Message, _Req),
+			    {ok, Req, Status}
+		    end;
 		false -> 
-		    process(Routes, Req, State, Module)
+		    process(Routes, _Req, State, Module)
 	    end
     end;
 
-process([], Req, State, _) ->
-    {ok, Req1} = cowboy_http_req:reply(404, [], <<"">>, Req),
-    {ok, Req1, State}.
+process([], _Req, State, _) ->
+    {ok, Req} = cowboy_http_req:reply(404, [], <<"">>, _Req),
+    {ok, Req, State}.
+
 
 
 
