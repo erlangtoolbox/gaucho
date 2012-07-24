@@ -40,13 +40,14 @@ get_attributes(_, Acc, []) ->
 
 %find handler for rawpath
 process([Route|Routes], _Req, State,  Module) ->
-    io:format("Route: ~p~n", [Route]),
+    %io:format("Route: ~p~n", [Route]),
     {RawPath, _} = cowboy_http_req:raw_path(_Req),
 
     case re:run(RawPath, Route#route.path, [{capture, all, list}]) of
 	nomatch ->
 	    process(Routes, _Req, State,  Module);
 	{match, _} ->
+	    %io:format("RawPath: ~p~n", [RawPath]),
 	    {Method, _} = cowboy_http_req:method(_Req),
 	    case lists:member(binary_to_atom(Method, utf8), Route#route.accepted_methods) of
 		true ->
@@ -104,20 +105,23 @@ fill_path_variables(Variables, []) ->
 
 
 prepare_route(RoutePattern) ->
-    case re:run(
-	   RoutePattern, "{([^/:]*):?([^/]*)}", 
-	   [global, {capture, all, list}]
-	  ) of
-	{match, Replacements} ->
-	    string:concat(
-	      string:concat("^",
-			    replace_ph(RoutePattern, Replacements)), 
-	      "$");
-	nomatch -> RoutePattern
-    end.
+    Result = case re:run(
+		    RoutePattern, "{([^/:]*):?([^/]*)}", 
+		    [global, {capture, all, list}]
+		   ) of
+		 {match, Replacements} ->
+		     replace_ph(RoutePattern, Replacements);
 
-						%replace placeholders by its regexes
+		 nomatch -> RoutePattern
+	     end,
+    string:concat(
+      string:concat("^",
+		    Result),
+      "$").
 
+
+
+ %replace placeholders by its regexes
 replace_ph(Subject, [Head| Replacements]) ->
     Search = lists:nth(1, Head),
     Replace = case Elem = lists:nth(3, Head) of
