@@ -16,6 +16,7 @@ parse_transform(Forms, _Options) ->
     [ModuleName] = [element(4, Name) || Name <- Forms, element(3, Name) == module],
     {eof, Line} = lists:keyfind(eof, 1, Forms),
     Routes = extract_webmethods(Forms),
+    %io:format("Routes: ~p~n", [Routes]),
     RoutesAst = build_routes_ast(Routes, Line),
     Forms1 = lists:keydelete(eof, 1, Forms),
 
@@ -71,9 +72,11 @@ extract_webmethods(looking_for_handler, WebmethodOpts, Acc, [Form|Forms]) ->
 extract_webmethods(looking_for_annotation, _, Acc, [Form|Forms]) ->
     case Form of
 	{attribute, _, webmethod, Opts} ->
+	    %io:format("Opts: ~p~n", [ Opts ]),
 	    extract_webmethods(looking_for_handler, Opts, Acc, Forms);
 	_ -> extract_webmethods(looking_for_annotation, nil, Acc, Forms)
     end;
+%%TODO: add type conversion
 extract_webmethods(_, _, Acc, []) ->
     Acc.
 

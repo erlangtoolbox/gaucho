@@ -40,7 +40,7 @@ get_attributes(_, Acc, []) ->
 
 %find handler for rawpath
 process([Route|Routes], _Req, State,  Module) ->
-
+    io:format("Route: ~p~n", [Route]),
     {RawPath, _} = cowboy_http_req:raw_path(_Req),
 
     case re:run(RawPath, Route#route.path, [{capture, all, list}]) of
@@ -67,7 +67,7 @@ process([Route|Routes], _Req, State,  Module) ->
 			    Json = apply(element(1, Body), to_json, [Body]),
 			    {ok, Req} = cowboy_http_req:reply(200, [], Json, _Req),
 			    {ok, Req, 200};
-			{Status, Message} -> 
+			{error, {Status, Message}} -> 
 			    {ok, Req} = cowboy_http_req:reply(Status, [], Message, _Req),
 			    {ok, Req, Status}
 		    end;
