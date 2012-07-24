@@ -115,8 +115,7 @@ prepare_route(RoutePattern) ->
 		 nomatch -> RoutePattern
 	     end,
     string:concat(
-      string:concat("^",
-		    Result),
+      string:concat("^", Result),
       "$").
 
 
