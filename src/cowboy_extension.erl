@@ -49,6 +49,7 @@ process([Route|Routes], _Req, State,  Module) ->
 	{match, _} ->
 	    %io:format("RawPath: ~p~n", [RawPath]),
 	    {Method, _} = cowboy_http_req:method(_Req),
+	    %io:format("METHOD: ~p~n", [Method]),
 	    case lists:member(binary_to_atom(Method, utf8), Route#route.accepted_methods) of
 		true ->
 		    Variables = get_attributes(_Req, Route#route.attribute_sources),
@@ -61,16 +62,22 @@ process([Route|Routes], _Req, State,  Module) ->
 				Variables
 			end,
 		    Attributes = [Val||{_, Val} <- AllVariables],
-		    io:format("~p~n", [Attributes]),
+		    %io:format("~p~n", [Attributes]),
 		    case apply(Module, Route#route.handler, Attributes) of
 			{ok, Body} when is_tuple(Body) ->
-			    io:format("BODY: ~p~n", [Body]),
+			    %io:format("BODY: ~p~n", [Body]),
 			    Json = apply(element(1, Body), to_json, [Body]),
 			    {ok, Req} = cowboy_http_req:reply(200, [], Json, _Req),
 			    {ok, Req, 200};
 			{error, {Status, Message}} -> 
 			    {ok, Req} = cowboy_http_req:reply(Status, [], Message, _Req),
-			    {ok, Req, Status}
+			    {ok, Req, Status};
+			ok -> 
+			    {ok, _Req, 204};
+			UnexpectedResult  ->
+			    Info = io_lib:format("~p~n", [UnexpectedResult]),
+			    {ok, Req} = cowboy_http_req:reply(500, [], list_to_binary(Info), _Req),
+			    {ok, Req, 500}
 		    end;
 		false -> 
 		    process(Routes, _Req, State, Module)
