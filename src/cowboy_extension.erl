@@ -43,7 +43,7 @@ get_attributes(_, Acc, []) ->
 
 %find handler for rawpath
 process([Route|Routes], _Req, State,  Module) ->
-    io:format("Route: ~p~n", [Route]),
+    %io:format("Route: ~p~n", [Route]),
     {RawPath, _} = cowboy_http_req:raw_path(_Req),
     {Path, _} = cowboy_http_req:path(_Req),
 						%io:format("RawPath: ~p~n", [RawPath]),
@@ -76,7 +76,7 @@ process([Route|Routes], _Req, State,  Module) ->
 						%io:format("~p~n", [Attributes]),
 		    case apply(Module, Route#route.handler, Attributes) of
 			{ok, Body} when is_tuple(Body) ->
-			    io:format("BODY: ~p~n", [Body]),
+			    %io:format("BODY: ~p~n", [Body]),
 			    Json = apply(element(1, Body), to_json, [Body]),
 			    {ok, Req} = cowboy_http_req:reply(200, [], Json, _Req),
 			    {ok, Req, 200};
