@@ -12,7 +12,11 @@ get_attributes(_Req, _Acc, [{Name, Spec}| Attributes]) ->
 	case Spec of
 	    {body, json, ParserName} ->
 		{ok, Body, __Req} = cowboy_http_req:body(_Req),
-		{ok, Json} = apply(ParserName, from_json, [Body,ParserName]),
+		Json = case apply(ParserName, from_json, [Body,ParserName]) of
+			   {ok, Result} ->
+			       Result;
+			   undefined -> {}
+		       end,
 		{Json, __Req};
 
 	    path -> 
@@ -37,20 +41,27 @@ get_attributes(_, Acc, []) ->
     Acc.
 
 
-
 %find handler for rawpath
 process([Route|Routes], _Req, State,  Module) ->
-    %io:format("Route: ~p~n", [Route]),
+    io:format("Route: ~p~n", [Route]),
     {RawPath, _} = cowboy_http_req:raw_path(_Req),
+    {Path, _} = cowboy_http_req:path(_Req),
+						%io:format("RawPath: ~p~n", [RawPath]),
+						%io:format("Path: ~p~n", [Path]),
 
     case re:run(RawPath, Route#route.path, [{capture, all, list}]) of
 	nomatch ->
 	    process(Routes, _Req, State,  Module);
 	{match, _} ->
-	    %io:format("RawPath: ~p~n", [RawPath]),
-	    {Method, _} = cowboy_http_req:method(_Req),
-	    %io:format("METHOD: ~p~n", [Method]),
-	    case lists:member(binary_to_atom(Method, utf8), Route#route.accepted_methods) of
+
+	    Method = case cowboy_http_req:method(_Req) of
+			 {RawMethod, _} when is_binary(RawMethod) ->
+			     binary_to_atom(RawMethod, utf8);
+			 {RawMethod, _} when is_atom(RawMethod) ->
+			     list_to_atom(string:to_lower(atom_to_list(RawMethod)))
+		     end,
+						%io:format("METHOD: ~p~n", [Method]),
+	    case lists:member(Method, Route#route.accepted_methods) of
 		true ->
 		    Variables = get_attributes(_Req, Route#route.attribute_sources),
 		    AllVariables  = 
@@ -62,10 +73,10 @@ process([Route|Routes], _Req, State,  Module) ->
 				Variables
 			end,
 		    Attributes = [Val||{_, Val} <- AllVariables],
-		    %io:format("~p~n", [Attributes]),
+						%io:format("~p~n", [Attributes]),
 		    case apply(Module, Route#route.handler, Attributes) of
 			{ok, Body} when is_tuple(Body) ->
-			    %io:format("BODY: ~p~n", [Body]),
+			    io:format("BODY: ~p~n", [Body]),
 			    Json = apply(element(1, Body), to_json, [Body]),
 			    {ok, Req} = cowboy_http_req:reply(200, [], Json, _Req),
 			    {ok, Req, 200};
@@ -74,6 +85,10 @@ process([Route|Routes], _Req, State,  Module) ->
 			    {ok, Req, Status};
 			ok -> 
 			    {ok, _Req, 204};
+			{error, UnexpectedError} ->
+			    Info = io_lib:format("~p~n", [UnexpectedError]),
+			    {ok, Req} = cowboy_http_req:reply(404, [], list_to_binary(Info), _Req),
+			    {ok, Req, 404};
 			UnexpectedResult  ->
 			    Info = io_lib:format("~p~n", [UnexpectedResult]),
 			    {ok, Req} = cowboy_http_req:reply(500, [], list_to_binary(Info), _Req),

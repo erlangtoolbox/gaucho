@@ -16,7 +16,7 @@ parse_transform(Forms, _Options) ->
     [ModuleName] = [element(4, Name) || Name <- Forms, element(3, Name) == module],
     {eof, Line} = lists:keyfind(eof, 1, Forms),
     Routes = extract_webmethods(Forms),
-    %io:format("Routes: ~p~n", [Routes]),
+						%    io:format("Routes: ~p~n", [Routes]),
     RoutesAst = build_routes_ast(Routes, Line),
     Forms1 = lists:keydelete(eof, 1, Forms),
 
