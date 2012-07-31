@@ -2,8 +2,8 @@
 	  path, 
 	  accepted_methods, 
 	  produces, 
-	  output, 
-	  attribute_sources,
+	  out_format,
+	  attribute_specs,
 	  handler,
 	  raw_path
 	 }).

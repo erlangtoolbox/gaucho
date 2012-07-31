@@ -40,44 +40,73 @@ parse_transform(Forms, _Options) ->
     TerminateFunc = {function,Line+2,terminate,2,
 		     [{clause,Line+2,[{var,Line+2,'_Req'},{var,Line+2,'_State'}],[],[{atom,Line+2,ok}]}]},
     Forms2 = lists:append(Forms1, [HandleFunc, InitFunc, TerminateFunc, {eof, Line+3}]),
-						%Handle = [Func || Func <- Forms2, element(1, Func) == function,element(3, Func) == handle],
-						%io:format("~p~n", [Handle]),
+    %% Handle = [Func || Func <- Forms2, element(1, Func) == function,element(3, Func) == handle],
+    %% io:format("~p~n", [Handle]),
     [Form|| Form <- Forms2, element(3,Form) =/= webmethod].
+
+get_attribute_types([{type, _, SimpleType, []}|Specs]) ->
+    [SimpleType | get_attribute_types(Specs)];
+
+get_attribute_types([{type, _, record, [{atom, _, RecordName}]} | Specs]) ->
+    [{record, RecordName} | get_attribute_types(Specs)];
+
+get_attribute_types([{type, _, list, [{type, _, SimpleType, []}]} | Specs]) ->
+    [{list, SimpleType} | get_attribute_types(Specs)];
+
+get_attribute_types([{type , _, list, [{type, _, record, [{atom, _, RecordName}]}]}| Specs]) ->
+    [{list, {record, RecordName} }| get_attribute_types(Specs)];
+
+get_attribute_types([_ | Specs]) ->
+    erlang:error(ce_unsupported_attr_type);
+
+get_attribute_types([]) -> [].
+
 
 
 extract_webmethods(Forms) ->
     extract_webmethods(looking_for_annotation, nil, [], Forms).
 
+extract_webmethods(looking_for_handler, WebmethodOpts, Acc, 
+		   [{attribute, _, spec, {{Name, _} , TypeSpecs}} |Forms]) ->
+    Path = cowboy_extension:prepare_route(element(1, WebmethodOpts)),
+    [{type, _, 'fun', [{type, _, product, Types}, Out]}] = TypeSpecs,
+    AttributeTypes = get_attribute_types(Types),
+    %% io:format("WO: ~p~n", [WebmethodOpts]),
+    {_, HTTPMethods, Produces, OutFormat, AttributeSources} = WebmethodOpts,
+    io:format("Name: ~p~n", [Name]),
+    %% io:format("Types: ~p~n", [AttributeTypes]),
+    %% io:format("Sources: ~p~n", [AttributeSources]),
+     io:format("Alltogether: ~p~n~n", [lists:zip(AttributeSources, AttributeTypes)]),
+    Route = #route{
+      path=Path,
+      handler=Name, 
+      accepted_methods=HTTPMethods, 
+      produces=Produces, 
+      out_format=OutFormat, 
+      attribute_specs=lists:zip(AttributeSources, AttributeTypes),
+      raw_path=element(1,WebmethodOpts)
+     },
+    Acc1 = lists:append(Acc, [Route]),
+    extract_webmethods(looking_for_annotation, nil, Acc1, Forms);
 
-extract_webmethods(looking_for_handler, WebmethodOpts, Acc, [Form|Forms]) ->
-    case Form of
-	{function, _, Name, _, _} -> 
-	    Path = cowboy_extension:prepare_route(element(1, WebmethodOpts)),
-	    
-	    {_, HTTPMethods, Produces, Output, AttributeSources} = WebmethodOpts,
-	    Route = #route{
-	      path=Path,
-	      handler=Name, 
-	      accepted_methods=HTTPMethods, 
-	      produces=Produces, 
-	      output=Output, 
-	      attribute_sources=AttributeSources,
-	      raw_path=element(1,WebmethodOpts)
-	     },
-	    Acc1 = lists:append(Acc, [Route]),
-	    extract_webmethods(looking_for_annotation, nil, Acc1, Forms);
-	_ ->
-	    extract_webmethods(looking_for_handler, WebmethodOpts, Acc, Forms)
-    end;
-extract_webmethods(looking_for_annotation, _, Acc, [Form|Forms]) ->
-    case Form of
-	{attribute, _, webmethod, Opts} ->
-	    %io:format("Opts: ~p~n", [ Opts ]),
-	    extract_webmethods(looking_for_handler, Opts, Acc, Forms);
-	_ -> extract_webmethods(looking_for_annotation, nil, Acc, Forms)
-    end;
-%%TODO: add type conversion
+extract_webmethods(looking_for_handler, WebmethodOpts, Acc, [_| Forms]) ->
+    extract_webmethods(looking_for_handler, WebmethodOpts, Acc, Forms);
+
+extract_webmethods(looking_for_annotation, _, Acc, [{attribute, _, webmethod, Opts}|Forms]) ->
+    %% io:format("Opts: ~p~n", [ Opts ]),
+    extract_webmethods(looking_for_handler, Opts, Acc, Forms);
+
+extract_webmethods(looking_for_annotation, _, Acc, [_| Forms]) ->
+    extract_webmethods(looking_for_annotation, nil, Acc, Forms);
+
 extract_webmethods(_, _, Acc, []) ->
     Acc.
 
-
+%% functionblabla() ->
+%%     {attribute,78,spec,
+%%      {{get_field,3},
+%%       [{type,78,'fun',
+%% 	[{type,78,product,
+%% 	  [{type,78,integer,[]},{type,78,atom,[]},{type,78,string,[]}]},
+%% 	 {remote_type,78,
+%% 	  [{atom,78,error_m},{atom,78,monad},[{type,78,any,[]}]]}]}]}}.
