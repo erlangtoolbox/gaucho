@@ -5,20 +5,26 @@
 -export([process/4, prepare_route/1]).
 
 get_attributes(Req, Attributes) ->
-    get_attributes(Req, [], Attributes).
+        get_attributes(Req, [], Attributes).
 
-get_attributes(_Req, _Acc, [{Name, Spec}| Attributes]) ->
+get_attributes(_Req, _Acc, [Spec = {{Name, {body, json, ParserName}}, {record, Type}}| Attributes]) ->
+    io:format("Speec: ~p~n", [Spec]),
+    
+    {ok, Body, Req} = cowboy_http_req:body(_Req),
+    Json = case apply(ParserName, from_json, [Body,Type]) of
+	       {ok, Result} ->
+		   Result;
+	       undefined -> {}
+	   end,
+    
+    Acc = lists:append(_Acc, [{Name, Json}]),
+    get_attributes(Req, Acc, Attributes);
+
+
+get_attributes(_Req, _Acc, [{{Name, Spec}, AttributeType}| Attributes]) ->
+    io:format("AttributeType: ~p~n", [AttributeType]),
     {Value, Req} = 
 	case Spec of
-	    {body, json, ParserName} ->
-		{ok, Body, __Req} = cowboy_http_req:body(_Req),
-		Json = case apply(ParserName, from_json, [Body,ParserName]) of
-			   {ok, Result} ->
-			       Result;
-			   undefined -> {}
-		       end,
-		{Json, __Req};
-
 	    path -> 
 		{undefined, _Req};
 
@@ -33,7 +39,6 @@ get_attributes(_Req, _Acc, [{Name, Spec}| Attributes]) ->
 	    _ -> {{Name, undefined}, _Req}
 
 	end,
-
     Acc = lists:append(_Acc, [{Name, Value}]),
     get_attributes(Req, Acc, Attributes);
 
@@ -41,13 +46,15 @@ get_attributes(_, Acc, []) ->
     Acc.
 
 
+
+
 %find handler for rawpath
 process([Route|Routes], _Req, State,  Module) ->
-    %io:format("Route: ~p~n", [Route]),
+    %%io:format("Route: ~p~n", [Route]),
     {RawPath, _} = cowboy_http_req:raw_path(_Req),
     {Path, _} = cowboy_http_req:path(_Req),
-						%io:format("RawPath: ~p~n", [RawPath]),
-						%io:format("Path: ~p~n", [Path]),
+    %%io:format("RawPath: ~p~n", [RawPath]),
+    %%io:format("Path: ~p~n", [Path]),
 
     case re:run(RawPath, Route#route.path, [{capture, all, list}]) of
 	nomatch ->
@@ -60,23 +67,25 @@ process([Route|Routes], _Req, State,  Module) ->
 			 {RawMethod, _} when is_atom(RawMethod) ->
 			     list_to_atom(string:to_lower(atom_to_list(RawMethod)))
 		     end,
-						%io:format("METHOD: ~p~n", [Method]),
+	    %%io:format("METHOD: ~p~n", [Method]),
 	    case lists:member(Method, Route#route.accepted_methods) of
 		true ->
-		    Variables = get_attributes(_Req, Route#route.attribute_sources),
-		    AllVariables  = 
-			case lists:keymember(path, 2, Route#route.attribute_sources) of
-			    true ->
-				PathVariables = extract_path_variables(_Req, Route),
-				fill_path_variables(Variables, PathVariables);
-			    false ->
-				Variables
-			end,
+		    Variables = get_attributes(_Req, Route#route.attribute_specs),
+		    PathVariables = extract_path_variables(_Req, Route),
+		    AllVariables  = 				fill_path_variables(Variables, PathVariables),
+		    %% case lists:keymember(path, 2, Route#route.attribute_specs) of
+		    %%     true ->
+
+
+		    %%     false ->
+		    %% 	Variables
+		    %% end,
+		    io:format("AllVariables: ~p~n", [AllVariables]),
 		    Attributes = [Val||{_, Val} <- AllVariables],
-						%io:format("~p~n", [Attributes]),
+		    io:format("Attributes: ~p~n", [Attributes]),
 		    case apply(Module, Route#route.handler, Attributes) of
 			{ok, Body} when is_tuple(Body) ->
-			    %io:format("BODY: ~p~n", [Body]),
+						%io:format("BODY: ~p~n", [Body]),
 			    Json = apply(element(1, Body), to_json, [Body]),
 			    {ok, Req} = cowboy_http_req:reply(200, [], Json, _Req),
 			    {ok, Req, 200};
