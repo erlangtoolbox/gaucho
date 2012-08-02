@@ -44,22 +44,24 @@ parse_transform(Forms, _Options) ->
     %% io:format("~p~n", [Handle]),
     [Form|| Form <- Forms2, element(3,Form) =/= webmethod].
 
-get_attribute_types([{type, _, SimpleType, []}|Specs]) ->
-    [SimpleType | get_attribute_types(Specs)];
-
-get_attribute_types([{type, _, record, [{atom, _, RecordName}]} | Specs]) ->
-    [{record, RecordName} | get_attribute_types(Specs)];
-
-get_attribute_types([{type, _, list, [{type, _, SimpleType, []}]} | Specs]) ->
-    [{list, SimpleType} | get_attribute_types(Specs)];
-
-get_attribute_types([{type , _, list, [{type, _, record, [{atom, _, RecordName}]}]}| Specs]) ->
-    [{list, {record, RecordName} }| get_attribute_types(Specs)];
-
-get_attribute_types([_ | Specs]) ->
-    erlang:error(ce_unsupported_attr_type);
+get_attribute_types([Spec | Specs]) ->
+    [get_attribute_type(Spec)| get_attribute_types(Specs)];
 
 get_attribute_types([]) -> [].
+
+
+
+get_attribute_type({remote_type,_, [{atom,_, maybe_m},{atom,_,monad},[Type]]}) ->
+    {maybe, get_attribute_type(Type)};
+
+get_attribute_type({type, _, SimpleType, []}) ->
+    SimpleType;
+
+get_attribute_type({type, _, record, [{atom, _, RecordName}]}) ->
+    {record, RecordName};
+
+get_attribute_type(UnsupportedType) ->
+    erlang:error(cowboy_ext_unsupported_type, [UnsupportedType]).
 
 
 
@@ -70,13 +72,15 @@ extract_webmethods(looking_for_handler, WebmethodOpts, Acc,
 		   [{attribute, _, spec, {{Name, _} , TypeSpecs}} |Forms]) ->
     Path = cowboy_extension:prepare_route(element(1, WebmethodOpts)),
     [{type, _, 'fun', [{type, _, product, Types}, Out]}] = TypeSpecs,
+    io:format("Types: ~p~n", [Types]),
     AttributeTypes = get_attribute_types(Types),
-    %% io:format("WO: ~p~n", [WebmethodOpts]),
+
     {_, HTTPMethods, Produces, OutFormat, AttributeSources} = WebmethodOpts,
     io:format("Name: ~p~n", [Name]),
-    %% io:format("Types: ~p~n", [AttributeTypes]),
-    %% io:format("Sources: ~p~n", [AttributeSources]),
-     io:format("Alltogether: ~p~n~n", [lists:zip(AttributeSources, AttributeTypes)]),
+    io:format("AttributeTypes: ~p~n", [AttributeTypes]),
+    io:format("Out: ~p~n", [Out]),
+
+    io:format("Alltogether: ~p~n~n", [lists:zip(AttributeSources, AttributeTypes)]),
     Route = #route{
       path=Path,
       handler=Name, 

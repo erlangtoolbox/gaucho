@@ -3,31 +3,44 @@
 
 
 -export([process/4, prepare_route/1]).
+-spec transform/2 :: (string()|list()|integer()|binary()|float(), atom()) -> any().
+transform(Value, To) ->
+    Function = list_to_atom(string:concat("to_", atom_to_list(To))),
+    apply(strikead_string, Function, [Value]).
 
-get_attributes(Req, Attributes) ->
-        get_attributes(Req, [], Attributes).
+parse_body(_, <<>>, _) ->
+    undefined;
 
-get_attributes(_Req, _Acc, [Spec = {{Name, {body, json, ParserName}}, {record, Type}}| Attributes]) ->
-    io:format("Speec: ~p~n", [Spec]),
-    
+parse_body(ParserName, Body, RecordName) ->
+    apply(ParserName, from_json, [Body, RecordName]).
+
+
+
+get_attributes(Req, PathVariables, Attributes) ->
+        get_attributes(Req, PathVariables, [], Attributes).
+
+get_attributes(_Req, PathVariables, _Acc, [{{Name, {body, json, ParserName}}, Spec}| Attributes]) ->
     {ok, Body, Req} = cowboy_http_req:body(_Req),
-    Json = case apply(ParserName, from_json, [Body,Type]) of
-	       {ok, Result} ->
+    Json = case Spec of
+	       {record, Type} -> 
+		   {ok, Result} = parse_body(ParserName, Body, Type),
 		   Result;
-	       undefined -> {}
+	       {maybe, {record, Type}} ->
+		   parse_body(ParserName, Body, Type)
 	   end,
-    
     Acc = lists:append(_Acc, [{Name, Json}]),
-    get_attributes(Req, Acc, Attributes);
+    get_attributes(Req, PathVariables, Acc, Attributes);
 
-
-get_attributes(_Req, _Acc, [{{Name, Spec}, AttributeType}| Attributes]) ->
+get_attributes(_Req, PathVariables, _Acc, [{{Name, Spec}, AttributeType}| Attributes]) 
+  when is_atom(AttributeType) ->
     io:format("AttributeType: ~p~n", [AttributeType]),
     {Value, Req} = 
 	case Spec of
-	    path -> 
-		{undefined, _Req};
-
+	    path ->
+		{Name, _Value} = lists:keyfind(Name, 1, PathVariables),
+		{_Value, _Req};
+	    %% Acc = lists:append(_Acc, [{Name, Value}]),
+	    %% get_attributes(Req, PathVariables, Acc, Attributes);		
 	    'query' ->
 		cowboy_http_req:qs_val(atom_to_binary(Name, utf8), _Req);
 
@@ -39,10 +52,11 @@ get_attributes(_Req, _Acc, [{{Name, Spec}, AttributeType}| Attributes]) ->
 	    _ -> {{Name, undefined}, _Req}
 
 	end,
-    Acc = lists:append(_Acc, [{Name, Value}]),
-    get_attributes(Req, Acc, Attributes);
+    CValue = transform(Value, AttributeType),
+    Acc = lists:append(_Acc, [{Name, CValue}]),
+    get_attributes(Req, PathVariables, Acc, Attributes);
 
-get_attributes(_, Acc, []) ->
+get_attributes(_, _, Acc, []) ->
     Acc.
 
 
@@ -70,22 +84,13 @@ process([Route|Routes], _Req, State,  Module) ->
 	    %%io:format("METHOD: ~p~n", [Method]),
 	    case lists:member(Method, Route#route.accepted_methods) of
 		true ->
-		    Variables = get_attributes(_Req, Route#route.attribute_specs),
 		    PathVariables = extract_path_variables(_Req, Route),
-		    AllVariables  = 				fill_path_variables(Variables, PathVariables),
-		    %% case lists:keymember(path, 2, Route#route.attribute_specs) of
-		    %%     true ->
-
-
-		    %%     false ->
-		    %% 	Variables
-		    %% end,
-		    io:format("AllVariables: ~p~n", [AllVariables]),
-		    Attributes = [Val||{_, Val} <- AllVariables],
+		    Variables = get_attributes(_Req, PathVariables, Route#route.attribute_specs),
+		    Attributes = [Val||{_, Val} <- Variables],
 		    io:format("Attributes: ~p~n", [Attributes]),
 		    case apply(Module, Route#route.handler, Attributes) of
 			{ok, Body} when is_tuple(Body) ->
-						%io:format("BODY: ~p~n", [Body]),
+			    %% io:format("BODY: ~p~n", [Body]),
 			    Json = apply(element(1, Body), to_json, [Body]),
 			    {ok, Req} = cowboy_http_req:reply(200, [], Json, _Req),
 			    {ok, Req, 200};
@@ -95,8 +100,8 @@ process([Route|Routes], _Req, State,  Module) ->
 			ok -> 
 			    {ok, _Req, 204};
 			{error, UnexpectedError} ->
-			    Info = io_lib:format("~p~n", [UnexpectedError]),
-			    {ok, Req} = cowboy_http_req:reply(404, [], list_to_binary(Info), _Req),
+			    io:format("~p~n", [UnexpectedError]),
+			    {ok, Req} = cowboy_http_req:reply(404, [], <<"Not found">>, _Req),
 			    {ok, Req, 404};
 			UnexpectedResult  ->
 			    Info = io_lib:format("~p~n", [UnexpectedResult]),
