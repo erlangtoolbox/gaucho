@@ -8,32 +8,38 @@ transform(Value, To) ->
     Function = list_to_atom(string:concat("to_", atom_to_list(To))),
     apply(strikead_string, Function, [Value]).
 
-parse_body(_, <<>>, _) ->
+parse_body(_, _, <<>>, _) ->
     undefined;
 
-parse_body(ParserName, Body, RecordName) ->
-    apply(ParserName, from_json, [Body, RecordName]).
+parse_body(ContentType, ModuleName, Body, RecordName) ->
+    Descr = ctparse:init(ContentType, ModuleName),
+    ctparse:from(Descr, Body, RecordName).
+    
+%%apply(ParserName, from_json, [Body, RecordName]).
+
+
 
 
 
 get_attributes(Req, PathVariables, Attributes) ->
         get_attributes(Req, PathVariables, [], Attributes).
 
-get_attributes(_Req, PathVariables, _Acc, [{{Name, {body, json, ParserName}}, Spec}| Attributes]) ->
+get_attributes(_Req, PathVariables, _Acc, 
+	       [{{Name, {body, {ContentType, ParserName}}}, Spec}| Attributes]) ->
     {ok, Body, Req} = cowboy_http_req:body(_Req),
     Json = case Spec of
 	       {record, Type} -> 
-		   {ok, Result} = parse_body(ParserName, Body, Type),
+		   {ok, Result} = parse_body(ContentType, ParserName, Body, Type),
 		   Result;
 	       {maybe, {record, Type}} ->
-		   parse_body(ParserName, Body, Type)
+		   parse_body(ContentType, ParserName, Body, Type)
 	   end,
     Acc = lists:append(_Acc, [{Name, Json}]),
     get_attributes(Req, PathVariables, Acc, Attributes);
 
 get_attributes(_Req, PathVariables, _Acc, [{{Name, Spec}, AttributeType}| Attributes]) 
   when is_atom(AttributeType) ->
-    io:format("AttributeType: ~p~n", [AttributeType]),
+    %% io:format("AttributeType: ~p~n", [AttributeType]),
     {Value, Req} = 
 	case Spec of
 	    path ->
@@ -64,7 +70,7 @@ get_attributes(_, _, Acc, []) ->
 
 %find handler for rawpath
 process([Route|Routes], _Req, State,  Module) ->
-    %%io:format("Route: ~p~n", [Route]),
+
     {RawPath, _} = cowboy_http_req:raw_path(_Req),
     {Path, _} = cowboy_http_req:path(_Req),
     %%io:format("RawPath: ~p~n", [RawPath]),
@@ -84,15 +90,17 @@ process([Route|Routes], _Req, State,  Module) ->
 	    %%io:format("METHOD: ~p~n", [Method]),
 	    case lists:member(Method, Route#route.accepted_methods) of
 		true ->
+		    %% io:format("Route: ~p~n", [Route]),
 		    PathVariables = extract_path_variables(_Req, Route),
 		    Variables = get_attributes(_Req, PathVariables, Route#route.attribute_specs),
 		    Attributes = [Val||{_, Val} <- Variables],
-		    io:format("Attributes: ~p~n", [Attributes]),
+		    %% io:format("Attributes: ~p~n", [Attributes]),
 		    case apply(Module, Route#route.handler, Attributes) of
-			{ok, Body} when is_tuple(Body) ->
+			{ok, Result} when is_tuple(Result) or is_list(Result)->
 			    %% io:format("BODY: ~p~n", [Body]),
-			    Json = apply(element(1, Body), to_json, [Body]),
-			    {ok, Req} = cowboy_http_req:reply(200, [], Json, _Req),
+			    %% Response = apply(element(1, Result), to_json, [Result]),
+			    Response = prepare_response(Result, Route),
+			    {ok, Req} = cowboy_http_req:reply(200, [], Response, _Req),
 			    {ok, Req, 200};
 			{error, {Status, Message}} -> 
 			    {ok, Req} = cowboy_http_req:reply(Status, [], Message, _Req),
@@ -117,7 +125,19 @@ process([], _Req, State, _) ->
     {ok, Req} = cowboy_http_req:reply(404, [], <<"">>, _Req),
     {ok, Req, State}.
 
+prepare_response(Result, #route{produces={ContentType, ParserModuleName}, output_spec={record, _}}) ->
+    Descr = ctparse:init(ContentType, ParserModuleName),
+    ctparse:to(Descr, Result);
+prepare_response(Result, #route{produces={ContentType, ParserModuleName}, output_spec={list, {record, Type}}})
+  when is_list(Result) ->
+    Descr = ctparse:init(ContentType, ParserModuleName),	    
+    ParsedResult = [ctparse:to(Descr, Elem) || Elem <- Result],
 
+    
+    ResultString = strikead_string:join(ParsedResult, <<",">>),
+    <<"[", ResultString/binary, "]">>;
+prepare_response(Result, Route) ->
+    erlang:error(cowboy_ext_not_implemented, [Result, Route]).
 
 
 extract_path_variables(Req, Route) ->
