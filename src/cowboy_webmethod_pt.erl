@@ -2,6 +2,7 @@
 -export([parse_transform/2]).
 
 -include("route.hrl").
+
 build_any_ast(Term, Line) ->
     Str = lists:flatten(io_lib:format(
 			   string:concat(string:copies("~n", Line-1), "~p."), [Term])),
@@ -11,6 +12,18 @@ build_any_ast(Term, Line) ->
 build_routes_ast(Routes, Line) ->
     {ok, [RoutesAst]} = build_any_ast(Routes, Line),
     RoutesAst.
+
+insert_before(BeforeElem, Elem, TupleList) ->
+    {Head, Tail} = lists:splitwith(fun(E) ->
+                case  E of
+                    BeforeElem ->
+                        false;
+                    _ ->
+                        true
+                end
+        end, TupleList),
+    Head ++ [Elem] ++ Tail.
+                
 
 parse_transform(Forms, _Options) ->
     [ModuleName] = [element(4, Name) || Name <- Forms, element(3, Name) == module],
@@ -40,9 +53,15 @@ parse_transform(Forms, _Options) ->
     TerminateFunc = {function,Line+2,terminate,2,
 		     [{clause,Line+2,[{var,Line+2,'_Req'},{var,Line+2,'_State'}],[],[{atom,Line+2,ok}]}]},
     Forms2 = lists:append(Forms1, [HandleFunc, InitFunc, TerminateFunc, {eof, Line+3}]),
+
+    FirstFun = {function, FLine, _Name, _Arity, _Clause} = lists:keyfind(function, 1, Forms2),
+    Export = {attribute, FLine-1, export, [ {FName, FArity} || Form = {function, _Line, FName, FArity, _Clause} <- Forms2,element(1, Form) == function]},
+    FormsWithExport = insert_before(FirstFun,Export, Forms2),
+
     %% Handle = [Func || Func <- Forms2, element(1, Func) == function,element(3, Func) == handle],
-    %% io:format("~p~n", [Handle]),
-    [Form|| Form <- Forms2, element(3,Form) =/= webmethod].
+    ResultForms = [Form|| Form <- FormsWithExport, element(3,Form) =/= webmethod],
+    %io:format("~p~n", [ResultForms]),
+    ResultForms.
 
 -spec get_attribute_types/1 :: (list()) -> tuple().
 get_attribute_types([Spec | Specs]) ->

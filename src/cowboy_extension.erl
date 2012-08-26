@@ -62,6 +62,8 @@ get_attributes(_Req, PathVariables, _Acc, [{{Name, Spec}, AttributeType}| Attrib
     Acc = lists:append(_Acc, [{Name, CValue}]),
     get_attributes(Req, PathVariables, Acc, Attributes);
 
+get_attributes(_, _, Acc, _) ->
+    Acc;
 get_attributes(_, _, Acc, []) ->
     Acc.
 
