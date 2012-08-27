@@ -55,7 +55,7 @@ parse_transform(Forms, _Options) ->
     Forms2 = lists:append(Forms1, [HandleFunc, InitFunc, TerminateFunc, {eof, Line+3}]),
 
     FirstFun = {function, FLine, _Name, _Arity, _Clause} = lists:keyfind(function, 1, Forms2),
-    Export = {attribute, FLine-1, export, [ {FName, FArity} || Form = {function, _Line, FName, FArity, _Clause} <- Forms2,element(1, Form) == function]},
+    Export = {attribute, FLine-1, export, [{init, 3}, {handle, 2}, {terminate, 2}]},
     FormsWithExport = insert_before(FirstFun,Export, Forms2),
 
     %% Handle = [Func || Func <- Forms2, element(1, Func) == function,element(3, Func) == handle],
@@ -134,12 +134,3 @@ extract_webmethods(looking_for_annotation, _, Acc, [_| Forms]) ->
 
 extract_webmethods(_, _, Acc, []) ->
     Acc.
-
-%% functionblabla() ->
-%%     {attribute,78,spec,
-%%      {{get_field,3},
-%%       [{type,78,'fun',
-%% 	[{type,78,product,
-%% 	  [{type,78,integer,[]},{type,78,atom,[]},{type,78,string,[]}]},
-%% 	 {remote_type,78,
-%% 	  [{atom,78,error_m},{atom,78,monad},[{type,78,any,[]}]]}]}]}}.
