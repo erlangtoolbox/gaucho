@@ -1,3 +1,4 @@
 -record(ctparse_descriptor, {
-	  parser_module,
-	  module}).
+        parser_module,
+        module
+    }).
