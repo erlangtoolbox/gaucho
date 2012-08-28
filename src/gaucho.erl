@@ -1,4 +1,5 @@
--module(cowboy_extension).
+-module(gaucho).
+
 -include("route.hrl").
 
 
@@ -139,7 +140,7 @@ prepare_response(Result, #route{produces={ContentType, ParserModuleName}, output
     ResultString = strikead_string:join(ParsedResult, <<",">>),
     <<"[", ResultString/binary, "]">>;
 prepare_response(Result, Route) ->
-    erlang:error(cowboy_ext_not_implemented, [Result, Route]).
+    erlang:error(gaucho_not_implemented, [Result, Route]).
 
 
 extract_path_variables(Req, Route) ->

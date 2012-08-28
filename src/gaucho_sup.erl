@@ -1,5 +1,4 @@
-
--module(cowboy_extension_sup).
+-module(gaucho_sup).
 
 -behaviour(supervisor).
 
