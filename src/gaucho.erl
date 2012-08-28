@@ -13,7 +13,7 @@ parse_transform(Forms, Options ) ->
 -spec transform/2 :: (string()|list()|integer()|binary()|float(), atom()) -> any().
 transform(Value, To) ->
     Function = list_to_atom(string:concat("to_", atom_to_list(To))),
-    apply(xl_strng, Function, [Value]).
+    apply(xl_string, Function, [Value]).
 
 parse_body(_, _, <<>>, _) ->
     undefined;
@@ -169,16 +169,4 @@ fill_path_variables(Variables, []) ->
 
 
 
-%replace Search with Replace in Subject
-str_replace(Subject, Search, Replace) ->
-    Lstr = string:len(Subject),
-    Lsearch = string:len(Search),
-    Pos = string:str(Subject, Search),
-    if
-	Pos =:= 0 -> Subject;
-	true -> 
-	    LeftPart = string:left(Subject, Pos-1),
-	    RightPart = string:right(Subject, Lstr-Lsearch-Pos+1),
-	    string:concat(string:concat(LeftPart, Replace), RightPart)
-    end.
 
