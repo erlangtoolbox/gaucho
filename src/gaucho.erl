@@ -7,7 +7,7 @@
 -spec transform/2 :: (string()|list()|integer()|binary()|float(), atom()) -> any().
 transform(Value, To) ->
     Function = list_to_atom(string:concat("to_", atom_to_list(To))),
-    apply(strikead_string, Function, [Value]).
+    apply(xl_strng, Function, [Value]).
 
 parse_body(_, _, <<>>, _) ->
     undefined;
@@ -137,7 +137,7 @@ prepare_response(Result, #route{produces={ContentType, ParserModuleName}, output
     ParsedResult = [ctparse:to(Descr, Elem) || Elem <- Result],
 
     
-    ResultString = strikead_string:join(ParsedResult, <<",">>),
+    ResultString = xl_string:join(ParsedResult, <<",">>),
     <<"[", ResultString/binary, "]">>;
 prepare_response(Result, Route) ->
     erlang:error(gaucho_not_implemented, [Result, Route]).
