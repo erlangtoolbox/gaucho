@@ -16,4 +16,4 @@ to(#ctparse_descriptor{module=Module} = Descriptor, Value) ->
 get_module("application/json") ->
     ctparse_json;
 get_module(ContentType) ->
-    erlang:error(cowboy_ext_not_implemented, [ContentType]).
+    erlang:error(gaucho_not_implemented, [ContentType]).

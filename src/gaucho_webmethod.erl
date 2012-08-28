@@ -1,4 +1,5 @@
--module(cowboy_webmethod_pt).
+-module(gaucho_webmethod).
+
 -export([parse_transform/2]).
 
 -include("route.hrl").
@@ -40,7 +41,7 @@ parse_transform(Forms, _Options) ->
 		    [{match,Line,
 		      {var,Line,'Routes'}, RoutesAst},
 		     {call,Line,
-		      {remote,Line,{atom,Line,cowboy_extension},{atom,Line,process}},
+		      {remote,Line,{atom,Line,gaucho},{atom,Line,process}},
 		      [{var,Line,'Routes'},
 		       {var,Line,'Req'},
 		       {var,Line,'State'},
@@ -71,7 +72,7 @@ get_attribute_types([]) -> [].
 
 
 -spec get_attribute_type/1 :: (any()) -> tuple().
-get_attribute_type({remote_type,_, [{atom,_, maybe_m},{atom,_,monad},[Type]]}) ->
+get_attribute_type({remote_type,_, [{atom,_, option_m},{atom,_,monad},[Type]]}) ->
     {maybe, get_attribute_type(Type)};
 
 get_attribute_type({type, _, SimpleType, []}) ->
@@ -81,7 +82,7 @@ get_attribute_type({type, _, record, [{atom, _, RecordName}]}) ->
     {record, RecordName};
 
 get_attribute_type(UnsupportedType) ->
-    erlang:error(cowboy_ext_unsupported_type, [UnsupportedType]).
+    erlang:error(gaucho_unsupported_type, [UnsupportedType]).
 
 
 %% process lists and error_m:monad type that are not allowed in attribute specs but allowed in output spec
@@ -99,7 +100,7 @@ extract_webmethods(Forms) ->
 
 extract_webmethods(looking_for_handler, WebmethodOpts, Acc, 
 		   [{attribute, _, spec, {{Name, _} , TypeSpecs}} |Forms]) ->
-    Path = cowboy_extension:prepare_route(element(1, WebmethodOpts)),
+    Path = gaucho:prepare_route(element(1, WebmethodOpts)),
     [{type, _, 'fun', [{type, _, product, Types}, Out]}] = TypeSpecs,
     %% io:format("Types: ~p~n", [Types]),
     AttributeTypes = get_attribute_types(Types),
