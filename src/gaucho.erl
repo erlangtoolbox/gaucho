@@ -3,7 +3,13 @@
 -include("route.hrl").
 
 
--export([process/4, prepare_route/1]).
+-export([process/4, parse_transform/2]).
+
+-spec parse_transform/2 :: (list(), list()) -> list().
+
+parse_transform(Forms, Options ) ->
+    gaucho_webmethod:parse_transform(Forms, Options).
+
 -spec transform/2 :: (string()|list()|integer()|binary()|float(), atom()) -> any().
 transform(Value, To) ->
     Function = list_to_atom(string:concat("to_", atom_to_list(To))),
@@ -160,23 +166,6 @@ fill_path_variables(Variables, [PathVariable = {Key, _}| PathVariables]) ->
 
 fill_path_variables(Variables, []) ->
     Variables.
-
-
-
-prepare_route(RoutePattern) ->
-    Result = case re:run(
-		    RoutePattern, "{([^/:]*):?([^/]*)}", 
-		    [global, {capture, all, list}]
-		   ) of
-		 {match, Replacements} ->
-		     replace_ph(RoutePattern, Replacements);
-
-		 nomatch -> RoutePattern
-	     end,
-    string:concat(
-      string:concat("^", Result),
-      "$").
-
 
 
  %replace placeholders by its regexes

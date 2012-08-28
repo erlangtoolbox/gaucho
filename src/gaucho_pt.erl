@@ -1,9 +1,9 @@
--module(gaucho_webmethod).
+-module(gaucho_pt).
 
 -export([parse_transform/2]).
 
 -include("route.hrl").
-
+%% TODO: write specs
 build_any_ast(Term, Line) ->
     Str = lists:flatten(io_lib:format(
 			   string:concat(string:copies("~n", Line-1), "~p."), [Term])),
@@ -94,6 +94,19 @@ get_output_type({type, _, list, [Type]}) ->
 get_output_type(Type) ->
     get_attribute_type(Type).
     
+prepare_route(RoutePattern) ->
+    Result = case re:run(
+		    RoutePattern, "{([^/:]*):?([^/]*)}", 
+		    [global, {capture, all, list}]
+		   ) of
+		 {match, Replacements} ->
+		     replace_ph(RoutePattern, Replacements);
+
+		 nomatch -> RoutePattern
+	     end,
+    string:concat(
+      string:concat("^", Result),
+      "$").
 
 extract_webmethods(Forms) ->
     extract_webmethods(looking_for_annotation, nil, [], Forms).
