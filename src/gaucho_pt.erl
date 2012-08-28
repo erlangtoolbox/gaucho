@@ -94,6 +94,36 @@ get_output_type({type, _, list, [Type]}) ->
 get_output_type(Type) ->
     get_attribute_type(Type).
     
+
+str_replace(Subject, Search, Replace) ->
+    Lstr = string:len(Subject),
+    Lsearch = string:len(Search),
+    Pos = string:str(Subject, Search),
+    if
+	Pos =:= 0 -> Subject;
+	true -> 
+	    LeftPart = string:left(Subject, Pos-1),
+	    RightPart = string:right(Subject, Lstr-Lsearch-Pos+1),
+	    string:concat(string:concat(LeftPart, Replace), RightPart)
+    end.
+
+
+
+ %replace placeholders by its regexes
+replace_ph(Subject, [Head| Replacements]) ->
+    Search = lists:nth(1, Head),
+    Replace = case Elem = lists:nth(3, Head) of
+		  [] -> "([^/]+)"; 
+		  _ -> Elem
+	      end,
+    replace_ph(str_replace(Subject, Search, Replace), Replacements);
+
+
+
+%replace Search with Replace in Subject
+replace_ph(Subject, []) ->
+    Subject.
+
 prepare_route(RoutePattern) ->
     Result = case re:run(
 		    RoutePattern, "{([^/:]*):?([^/]*)}", 

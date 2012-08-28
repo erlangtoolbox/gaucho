@@ -8,7 +8,7 @@
 -spec parse_transform/2 :: (list(), list()) -> list().
 
 parse_transform(Forms, Options ) ->
-    gaucho_webmethod:parse_transform(Forms, Options).
+    gaucho_pt:parse_transform(Forms, Options).
 
 -spec transform/2 :: (string()|list()|integer()|binary()|float(), atom()) -> any().
 transform(Value, To) ->
@@ -70,8 +70,6 @@ get_attributes(_Req, PathVariables, _Acc, [{{Name, Spec}, AttributeType}| Attrib
     get_attributes(Req, PathVariables, Acc, Attributes);
 
 get_attributes(_, _, Acc, _) ->
-    Acc;
-get_attributes(_, _, Acc, []) ->
     Acc.
 
 
@@ -168,17 +166,6 @@ fill_path_variables(Variables, []) ->
     Variables.
 
 
- %replace placeholders by its regexes
-replace_ph(Subject, [Head| Replacements]) ->
-    Search = lists:nth(1, Head),
-    Replace = case Elem = lists:nth(3, Head) of
-		  [] -> "([^/]+)"; 
-		  _ -> Elem
-	      end,
-    replace_ph(str_replace(Subject, Search, Replace), Replacements);
-
-replace_ph(Subject, []) ->
-    Subject.
 
 
 
