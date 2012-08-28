@@ -95,20 +95,6 @@ get_output_type(Type) ->
     get_attribute_type(Type).
     
 
-str_replace(Subject, Search, Replace) ->
-    Lstr = string:len(Subject),
-    Lsearch = string:len(Search),
-    Pos = string:str(Subject, Search),
-    if
-	Pos =:= 0 -> Subject;
-	true -> 
-	    LeftPart = string:left(Subject, Pos-1),
-	    RightPart = string:right(Subject, Lstr-Lsearch-Pos+1),
-	    string:concat(string:concat(LeftPart, Replace), RightPart)
-    end.
-
-
-
  %replace placeholders by its regexes
 replace_ph(Subject, [Head| Replacements]) ->
     Search = lists:nth(1, Head),
@@ -116,7 +102,7 @@ replace_ph(Subject, [Head| Replacements]) ->
 		  [] -> "([^/]+)"; 
 		  _ -> Elem
 	      end,
-    replace_ph(str_replace(Subject, Search, Replace), Replacements);
+    replace_ph(xl_string:replace(Subject, Search, Replace), Replacements);
 
 
 
