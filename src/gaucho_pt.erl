@@ -35,7 +35,7 @@ parse_transform(Forms, _Options) ->
 
     FirstFun = {function, FLine, _Name, _Arity, _Clause} = lists:keyfind(function, 1, Forms2),
     Export = {attribute, FLine-1, export, [{init, 3}, {handle, 2}, {terminate, 2}]},
-    FormsWithExport = gaucho_ast:insert_before_first(FirstFun,Export, Forms2),
+    FormsWithExport = xl_lists:insert_before(FirstFun, Export, Forms2),
 
     %% Handle = [Func || Func <- Forms2, element(1, Func) == function,element(3, Func) == handle],
     ResultForms = [Form|| Form <- FormsWithExport, element(3,Form) =/= webmethod],

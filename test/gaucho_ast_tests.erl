@@ -13,12 +13,3 @@ build_test()->
                 {cons, 13, {atom, 13, atom},{nil, 13}}}}, 
         gaucho_ast:build([1 ,"str", atom], 13)).
 
-
-insert_before_first() ->
-    ?assertEqual(
-        [1, 2, 3], 
-        gaucho_ast:insert_before_first(3, 2, [1, 3])),
-    ?assertEqual(
-        [one, two, three, four, five, four],
-        gaucho_ast:build(four, three, [one, two, four, five,four])
-    ).
