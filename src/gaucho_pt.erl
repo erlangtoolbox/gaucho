@@ -3,7 +3,6 @@
 -export([parse_transform/2]).
 
 -include("route.hrl").
-%% TODO: write specs
                 
 
 parse_transform(Forms, _Options) ->
