@@ -4,34 +4,13 @@
 
 -include("route.hrl").
 %% TODO: write specs
-build_any_ast(Term, Line) ->
-    Str = lists:flatten(io_lib:format(
-			   string:concat(string:copies("~n", Line-1), "~p."), [Term])),
-    {ok, Ts, _} = erl_scan:string(Str),
-    erl_parse:parse_exprs(Ts).
-
-build_routes_ast(Routes, Line) ->
-    {ok, [RoutesAst]} = build_any_ast(Routes, Line),
-    RoutesAst.
-
-insert_before(BeforeElem, Elem, TupleList) ->
-    {Head, Tail} = lists:splitwith(fun(E) ->
-                case  E of
-                    BeforeElem ->
-                        false;
-                    _ ->
-                        true
-                end
-        end, TupleList),
-    Head ++ [Elem] ++ Tail.
                 
 
 parse_transform(Forms, _Options) ->
     [ModuleName] = [element(4, Name) || Name <- Forms, element(3, Name) == module],
     {eof, Line} = lists:keyfind(eof, 1, Forms),
     Routes = extract_webmethods(Forms),
-						%    io:format("Routes: ~p~n", [Routes]),
-    RoutesAst = build_routes_ast(Routes, Line),
+    RoutesAst= gaucho_ast:build(Routes, Line),
     Forms1 = lists:keydelete(eof, 1, Forms),
 
     HandleFunc = {function,Line,handle,2,
@@ -57,7 +36,7 @@ parse_transform(Forms, _Options) ->
 
     FirstFun = {function, FLine, _Name, _Arity, _Clause} = lists:keyfind(function, 1, Forms2),
     Export = {attribute, FLine-1, export, [{init, 3}, {handle, 2}, {terminate, 2}]},
-    FormsWithExport = insert_before(FirstFun,Export, Forms2),
+    FormsWithExport = gaucho_ast:insert_before_first(FirstFun,Export, Forms2),
 
     %% Handle = [Func || Func <- Forms2, element(1, Func) == function,element(3, Func) == handle],
     ResultForms = [Form|| Form <- FormsWithExport, element(3,Form) =/= webmethod],
