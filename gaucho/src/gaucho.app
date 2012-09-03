@@ -7,6 +7,6 @@
                   kernel,
                   stdlib
                  ]},
-  {mod, { gaucho_app, []}},
+  %{mod, { gaucho_app, []}},
   {env, []}
  ]}.
