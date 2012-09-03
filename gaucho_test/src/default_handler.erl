@@ -7,6 +7,8 @@
 
 -compile({parse_transform, gaucho}).
 
+-include("test.hrl").
+
 -webmethod({
     "/test/{number}",
     [get],
@@ -36,7 +38,7 @@ post_test(Req) when is_list(Req)->
         auto,
         [{req, {body, {"text/plain", gaucho_test_converter}}}]
     }).
--spec testo_numero_uno/1 :: (list()) -> error_m:monad(list(string())).
+-spec testo_numero_uno/1 :: (#test{}) -> error_m:monad(list(string())).
 testo_numero_uno(Req) ->
     io:format("Req in testo_numero_uno: '~p'~n", [Req]),
     {ok, Req}.

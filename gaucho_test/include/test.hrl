@@ -1,0 +1,5 @@
+-record(test, {
+    id,
+    name
+}).
+

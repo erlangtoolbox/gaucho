@@ -1,7 +1,7 @@
 -module(gaucho).
 
 -include("route.hrl").
-
+-compile({parse_transform, do}).
 
 -export([process/4, parse_transform/2, start/2]).
 
@@ -18,54 +18,63 @@ transform(Value, To) ->
 
 
 
-
-
+get_body(Req) ->
+    case cowboy_http_req:body(Req) of 
+        {ok, Body, Req1} ->
+            {ok, {Body, Req1}};
+        E -> E
+    end.
 get_attributes(Req, PathVariables, Attributes) ->
         get_attributes(Req, PathVariables, [], Attributes).
 
-get_attributes(_Req, PathVariables, Acc, 
+get_attributes(Req, PathVariables, Acc, 
         [{{Name, {body, {ContentType, Converter}}}, Spec}| Attributes]) ->
 
-        {ok, Body, Req} = cowboy_http_req:body(_Req),
-        Content = Converter:from(Body, ContentType, Spec),
-        Acc1 = lists:append(Acc, [{Name, Content}]),
-        get_attributes(Req, PathVariables, Acc1, Attributes);
+        %{ok, Body, Req} = cowboy_http_req:body(_Req),
+        %Content = Converter:from(Body, ContentType, Spec),
+        do([error_m ||
+            {Body, Req1} <- get_body(Req),
+            Content <- Converter:from(Body, ContentType, Spec),
+            get_attributes(Req1, PathVariables, [{Name, Content} | Acc], Attributes)
+        ]);
+        %Acc1 = lists:append(Acc, [{Name, Content}]),
+        %get_attributes(Req, PathVariables, Acc1, Attributes);
 
-get_attributes(_Req, PathVariables, Acc, 
+get_attributes(Req, PathVariables, Acc, 
         [{{Name, {body, ContentType}}, Spec}| Attributes]) ->
+        do([error_m ||
+            {Body, Req1} <- get_body(Req),
+            Content <- gaucho_default_converter:from(Body,ContentType, Spec),
+            get_attributes(Req1, PathVariables, [{Name, Content} | Acc], Attributes)
+        ]);
 
-        {ok, Body, Req} = cowboy_http_req:body(_Req),
-        Content = gaucho_default_converter:from(Body, ContentType, Spec),
-        Acc1 = lists:append(Acc, [{Name, Content}]),
-        get_attributes(Req, PathVariables, Acc1, Attributes);
+get_attributes(_Req, PathVariables, Acc, [{{Name, Spec}, AttributeType}| Attributes]) when is_atom(AttributeType) ->
+    do([error_m ||
+            {Val, Req} <- case Spec of
+                path ->
+                    case xl_lists:kvfind(Name, PathVariables) of
+                        {ok, Value} -> {ok, {Value, _Req}};
+                        undefined -> {error, {unknown_pathvariable, Name}}
+                    end;
+                'query' ->
+                    {ok, cowboy_http_req:qs_val(atom_to_binary(Name, utf8), _Req)};
 
-get_attributes(_Req, PathVariables, _Acc, [{{Name, Spec}, AttributeType}| Attributes]) 
-  when is_atom(AttributeType) ->
-    {Value, Req} = 
-	case Spec of
-        body ->
-            {ok, Body, Req1} = cowboy_http_req:body(_Req),
-            {Body, Req1};
-        path ->
-            {Name, _Value} = lists:keyfind(Name, 1, PathVariables),
-            {_Value, _Req};
-	    'query' ->
-            cowboy_http_req:qs_val(atom_to_binary(Name, utf8), _Req);
+                cookie ->
+                    {ok, cowboy_http_req:cookie(atom_to_binary(Name, utf8), _Req)};
 
-	    cookie ->
-            cowboy_http_req:cookie(atom_to_binary(Name, utf8), _Req);
+                header ->
+                    {ok, cowboy_http_req:header(Name, _Req)};
+                _ -> {error, {unknown_spec, Spec}}
 
-	    header ->
-            cowboy_http_req:header(Name, _Req);
-	    _ -> {{Name, undefined}, _Req}
-
-	end,
-    CValue = transform(Value, AttributeType),
-    Acc = lists:append(_Acc, [{Name, CValue}]),
-    get_attributes(Req, PathVariables, Acc, Attributes);
+            end,
+            CValue <- return(transform(Val, AttributeType)),
+            get_attributes(Req, PathVariables, [{Name, CValue}| Acc], Attributes)
+    ]);
+    %Acc = lists:append(_Acc, [{Name, CValue}]),
+    %get_attributes(Req, PathVariables, [{Name, CValue}| Acc], Attributes);
 
 get_attributes(_, _, Acc, _) ->
-    Acc.
+    {ok, lists:reverse(Acc)}.
 
 
 
@@ -90,11 +99,11 @@ process([Route|Routes], _Req, State,  Module) ->
 	    case lists:member(Method, Route#route.accepted_methods) of
 		true ->
 		    PathVariables = extract_path_variables(_Req, Route),
-		    Variables = get_attributes(_Req, PathVariables, Route#route.attribute_specs),
+            {ok, Variables} = get_attributes(_Req, PathVariables, Route#route.attribute_specs),
 		    Attributes = [Val||{_, Val} <- Variables],
 		    case apply(Module, Route#route.handler, Attributes) of
 			{ok, Result} ->
-			    Response = prepare_response(Result, Route),
+                {ok, Response} = prepare_response(Result, Route),
 			    {ok, Req} = cowboy_http_req:reply(200, [], Response, _Req),
 			    {ok, Req, 200};
 			{error, {Status, Message}} -> 
