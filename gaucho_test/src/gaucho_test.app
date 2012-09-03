@@ -14,8 +14,8 @@
     {env, [
         {dispatch, [
             {'_', [
-                {[<<"test">>], default_handler, []},
-                {[<<"test">>, data], default_handler, []}
+                {[<<"user">>], user_handler, []},
+                {[<<"user">>, data], user_handler, []}
             ]}
         ]},
 		{listeners, [

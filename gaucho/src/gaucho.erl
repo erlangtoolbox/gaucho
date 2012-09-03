@@ -130,7 +130,7 @@ process([], _Req, State, _) ->
     {ok, Req, State}.
 
 prepare_response(Result, #route{out_format=raw}) ->
-    Result;
+    {ok, Result};
 prepare_response(Result, #route{output_spec=OutputSpec,produces={ContentType, Converter},out_format=auto})->
     Converter:to(Result, ContentType, OutputSpec);
 prepare_response(Result, R = #route{produces=ContentType, out_format=auto})->

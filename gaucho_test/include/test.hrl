@@ -1,5 +1,0 @@
--record(test, {
-    id,
-    name
-}).
-

@@ -1,14 +1,12 @@
 -module(gaucho_test_converter).
 -behaviour(gaucho_converter).
 
--include("test.hrl").
+-include("user.hrl").
 -export([from/3, to/3]).
 
-from(Body, _ContentType, Spec) ->
-    io:format("Spec: ~p~n", [Spec]),
-    [Id, Name] = string:tokens(xl_string:to_string(Body),";"),
-    {ok, #test{id=Id,name=Name}}.
+from(Body, _ContentType, {record, user}) ->
+    [Email, Name] = string:tokens(xl_string:to_string(Body),";"),
+    {ok, #user{email=Email,name=Name}}.
 
-to(_Result, _ContentType, OutputSpec) ->
-    io:format("OutputSpec: ~p~n", [OutputSpec]),
-    <<"Blablabla">>.
+to(Result, _ContentType, {record, user}) ->
+    {ok, xl_string:to_binary(xl_string:join([Result#user.email, Result#user.name], ";"))}.
