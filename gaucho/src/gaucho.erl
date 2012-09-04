@@ -1,6 +1,7 @@
 -module(gaucho).
 
 -include("route.hrl").
+-include_lib("cowboy/include/http.hrl").
 -compile({parse_transform, do}).
 
 -export([process/4, parse_transform/2, start/2]).
@@ -48,86 +49,97 @@ get_attributes(Req, PathVariables, Acc,
             get_attributes(Req1, PathVariables, [{Name, Content} | Acc], Attributes)
         ]);
 
-get_attributes(_Req, PathVariables, Acc, [{{Name, Spec}, AttributeType}| Attributes]) when is_atom(AttributeType) ->
+get_attributes(Req, PathVariables, Acc, [{{Name, Spec}, AttributeType}| Attributes]) when is_atom(AttributeType) ->
     do([error_m ||
-            {Val, Req} <- case Spec of
+            {Val, Req1} <- case Spec of
                 path ->
                     case xl_lists:kvfind(Name, PathVariables) of
-                        {ok, Value} -> {ok, {Value, _Req}};
+                        {ok, Value} -> {ok, {Value, Req}};
                         undefined -> {error, {unknown_pathvariable, Name}}
                     end;
                 'query' ->
-                    {ok, cowboy_http_req:qs_val(atom_to_binary(Name, utf8), _Req)};
+                    {ok, cowboy_http_req:qs_val(atom_to_binary(Name, utf8), Req)};
 
                 cookie ->
-                    {ok, cowboy_http_req:cookie(atom_to_binary(Name, utf8), _Req)};
+                    {ok, cowboy_http_req:cookie(atom_to_binary(Name, utf8), Req)};
 
                 header ->
-                    {ok, cowboy_http_req:header(Name, _Req)};
+                    {ok, cowboy_http_req:header(Name, Req)};
                 _ -> {error, {unknown_spec, Spec}}
 
             end,
             CValue <- return(transform(Val, AttributeType)),
             get_attributes(Req, PathVariables, [{Name, CValue}| Acc], Attributes)
     ]);
-    %Acc = lists:append(_Acc, [{Name, CValue}]),
-    %get_attributes(Req, PathVariables, [{Name, CValue}| Acc], Attributes);
 
 get_attributes(_, _, Acc, _) ->
     {ok, lists:reverse(Acc)}.
 
+get_api(Routes) ->
+    {ok, Api} = get_api(Routes, ""),
+    xl_string:to_binary(Api).
 
-
-
+get_api([#route{accepted_methods=[Method], raw_path=RawPath, output_spec=OutSpec, attribute_specs=InSpec}| Routes], Acc) ->
+    do([error_m||
+            ApiString <- return(io_lib:format("~s ~s~n\tInputSpec: ~p~n\tOutputSpec: ~p ~n~n", [xl_string:to_upper(xl_string:to_string(Method)), RawPath, InSpec, OutSpec])),
+            %ApiString <- return(io_lib:format("~s ~s~n~n", [xl_string:to_upper(xl_string:to_string(Method)), RawPath])),
+            get_api(Routes, Acc ++ ApiString)
+        ]);
+get_api([], Acc) ->
+    {ok, Acc}.
 %find handler for rawpath
-process([Route|Routes], _Req, State,  Module) ->
+process(AllRoutes = [Route|Routes], Req, State,  Module) ->
+    {RawPath, _} = cowboy_http_req:raw_path(Req),
+    case lists:last(Req#http_req.path) of
+        <<"_api">> ->
+            {ok, Req1} = cowboy_http_req:reply(200, [], get_api(AllRoutes), Req),
+            {ok, Req1, 200};
+        _ ->
+            case re:run(RawPath, Route#route.path, [{capture, all, list}]) of
+                nomatch ->
+                    process(Routes, Req, State,  Module);
+                {match, _} ->
+                    Method = case cowboy_http_req:method(Req) of
+                        {RawMethod, _} when is_binary(RawMethod) ->
+                            binary_to_atom(RawMethod, utf8);
+                        {RawMethod, _} when is_atom(RawMethod) ->
+                            list_to_atom(string:to_lower(atom_to_list(RawMethod)))
+                    end,
+                    case lists:member(Method, Route#route.accepted_methods) of
+                        true ->
+                            PathVariables = extract_path_variables(Req, Route),
+                            {ok, Variables} = get_attributes(Req, PathVariables, Route#route.attribute_specs),
+                            Attributes = [Val||{_, Val} <- Variables],
 
-    {RawPath, _} = cowboy_http_req:raw_path(_Req),
-    {Path, _} = cowboy_http_req:path(_Req),
+                            case apply(Module, Route#route.handler, Attributes) of
+                                {ok, Result} ->
+                                    {ok, Response} = prepare_response(Result, Route),
+                                    {ok, Req1} = cowboy_http_req:reply(200, [], Response, Req),
+                                    {ok, Req1, 200};
+                                ok -> 
+                                    {ok, Req, 204};
+                                {error, {Status, Message}} -> 
+                                    {ok, Req1} = cowboy_http_req:reply(Status, [], Message, Req),
+                                    {ok, Req1, Status};
 
-    case re:run(RawPath, Route#route.path, [{capture, all, list}]) of
-	nomatch ->
-	    process(Routes, _Req, State,  Module);
-	{match, _} ->
-
-	    Method = case cowboy_http_req:method(_Req) of
-			 {RawMethod, _} when is_binary(RawMethod) ->
-			     binary_to_atom(RawMethod, utf8);
-			 {RawMethod, _} when is_atom(RawMethod) ->
-			     list_to_atom(string:to_lower(atom_to_list(RawMethod)))
-		     end,
-	    case lists:member(Method, Route#route.accepted_methods) of
-		true ->
-		    PathVariables = extract_path_variables(_Req, Route),
-            {ok, Variables} = get_attributes(_Req, PathVariables, Route#route.attribute_specs),
-		    Attributes = [Val||{_, Val} <- Variables],
-		    case apply(Module, Route#route.handler, Attributes) of
-			{ok, Result} ->
-                {ok, Response} = prepare_response(Result, Route),
-			    {ok, Req} = cowboy_http_req:reply(200, [], Response, _Req),
-			    {ok, Req, 200};
-			{error, {Status, Message}} -> 
-			    {ok, Req} = cowboy_http_req:reply(Status, [], Message, _Req),
-			    {ok, Req, Status};
-			ok -> 
-			    {ok, _Req, 204};
-			{error, UnexpectedError} ->
-			    io:format("~p~n", [UnexpectedError]),
-			    {ok, Req} = cowboy_http_req:reply(404, [], <<"Not found">>, _Req),
-			    {ok, Req, 404};
-			UnexpectedResult  ->
-			    Info = io_lib:format("~p~n", [UnexpectedResult]),
-			    {ok, Req} = cowboy_http_req:reply(500, [], list_to_binary(Info), _Req),
-			    {ok, Req, 500}
-		    end;
-		false -> 
-		    process(Routes, _Req, State, Module)
-	    end
+                                {error, UnexpectedError} ->
+                                    io:format("~p~n", [UnexpectedError]),
+                                    {ok, Req1} = cowboy_http_req:reply(404, [], <<"Not found">>, Req),
+                                    {ok, Req1, 404};
+                                UnexpectedResult  ->
+                                    Info = io_lib:format("~p~n", [UnexpectedResult]),
+                                    {ok, Req1} = cowboy_http_req:reply(500, [], list_to_binary(Info), Req),
+                                    {ok, Req1, 500}
+                            end;
+                        false -> 
+                            process(Routes, Req, State, Module)
+                    end
+            end
     end;
+process([], Req, State, _) ->
+    {ok, Req1} = cowboy_http_req:reply(404, [], <<"">>, Req),
+    {ok, Req1, State}.
 
-process([], _Req, State, _) ->
-    {ok, Req} = cowboy_http_req:reply(404, [], <<"">>, _Req),
-    {ok, Req, State}.
 
 prepare_response(Result, #route{out_format=raw}) ->
     {ok, Result};
