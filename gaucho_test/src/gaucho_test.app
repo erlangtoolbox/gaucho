@@ -15,7 +15,7 @@
         {dispatch, [
             {'_', [
                 {[<<"user">>], user_handler, []},
-                {[<<"user">>, data], user_handler, []}
+                {[<<"user">>, '...'], user_handler, []}
             ]}
         ]},
 		{listeners, [
