@@ -87,6 +87,12 @@ get_api([#route{accepted_methods=[Method], raw_path=RawPath, output_spec=OutSpec
         ]);
 get_api([], Acc) ->
     {ok, Acc}.
+
+get_content_type({ContentType, _Converter}) ->
+    ContentType;
+get_content_type(ContentType) ->
+    ContentType.
+
 %find handler for rawpath
 process(AllRoutes = [Route|Routes], Req, State,  Module) ->
     {RawPath, _} = cowboy_http_req:raw_path(Req),
@@ -110,28 +116,29 @@ process(AllRoutes = [Route|Routes], Req, State,  Module) ->
                             PathVariables = extract_path_variables(Req, Route),
                             {ok, Variables} = get_attributes(Req, PathVariables, Route#route.attribute_specs),
                             Attributes = [Val||{_, Val} <- Variables],
-
+                            %io:format("Produces: ~p~n", [Route#route.produces] ),
                             case apply(Module, Route#route.handler, Attributes) of
                                 {ok, Result} ->
                                     {ok, Response} = prepare_response(Result, Route),
-                                    {ok, Req1} = cowboy_http_req:reply(200, [], Response, Req),
+                                    ContentType = get_content_type(Route#route.produces),
+                                    {ok, Req1} = cowboy_http_req:reply(200, [{'Content-Type', ContentType}], Response, Req),
                                     {ok, Req1, 200};
                                 ok -> 
                                     {ok, Req, 204};
                                 {error, Status} when is_integer(Status) ->
-                                    {ok, Req1} = cowboy_http_req:reply(Status, [], <<"">>, Req),
+                                    {ok, Req1} = cowboy_http_req:reply(Status, Req),
                                     {ok, Req1, Status};
                                 {error, {Status, Message}} -> 
-                                    {ok, Req1} = cowboy_http_req:reply(Status, [], Message, Req),
+                                    {ok, Req1} = cowboy_http_req:reply(Status, Message, Req),
                                     {ok, Req1, Status};
 
                                 {error, UnexpectedError} ->
                                     io:format("~p~n", [UnexpectedError]),
-                                    {ok, Req1} = cowboy_http_req:reply(404, [], <<"Not found">>, Req),
+                                    {ok, Req1} = cowboy_http_req:reply(404, Req),
                                     {ok, Req1, 404};
                                 UnexpectedResult  ->
                                     Info = io_lib:format("~p~n", [UnexpectedResult]),
-                                    {ok, Req1} = cowboy_http_req:reply(500, [], list_to_binary(Info), Req),
+                                    {ok, Req1} = cowboy_http_req:reply(500, list_to_binary(Info), Req),
                                     {ok, Req1, 500}
                             end;
                         false -> 

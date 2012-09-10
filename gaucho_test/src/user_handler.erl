@@ -37,7 +37,7 @@ retrieve(Email) ->
 -webmethod({
     "/user/{email}",
     [delete],
-    {"text/plain"},
+    "text/plain",
     raw,
     [{email, path}]
 }).
@@ -49,7 +49,7 @@ delete(Email) ->
 -webmethod({
     "/user/search/{email}",
     [get],
-    {"text/plain"},
+    "text/plain",
     auto,
     [{email, path}, {field, 'query'}, {value, 'query'}]
 }).
