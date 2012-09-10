@@ -118,6 +118,9 @@ process(AllRoutes = [Route|Routes], Req, State,  Module) ->
                                     {ok, Req1, 200};
                                 ok -> 
                                     {ok, Req, 204};
+                                {error, Status} when is_integer(Status) ->
+                                    {ok, Req1} = cowboy_http_req:reply(Status, [], <<"">>, Req),
+                                    {ok, Req1, Status};
                                 {error, {Status, Message}} -> 
                                     {ok, Req1} = cowboy_http_req:reply(Status, [], Message, Req),
                                     {ok, Req1, Status};

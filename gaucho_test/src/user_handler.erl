@@ -1,7 +1,7 @@
 -module(user_handler).
 
 
--export([create/1, retrieve/1, delete/1]).
+-export([create/1, retrieve/1, delete/1, search/3]).
 
 -behaviour(cowboy_http_handler).
 
@@ -44,3 +44,15 @@ retrieve(Email) ->
 -spec delete/1 :: (binary()) -> error_m:monad(any()).
 delete(Email) ->
     {ok, <<"User with email: '", Email/binary, "' deleted.">>}.
+
+
+-webmethod({
+    "/user/search/{email}",
+    [get],
+    {"text/plain"},
+    auto,
+    [{email, path}, {field, 'query'}, {value, 'query'}]
+}).
+-spec search/3 :: (binary(), binary(), binary()) -> error_m:monad(any()).
+search(Email, Field, Value) ->
+    {ok, <<Email/binary, ": ",Field/binary, " = ", Value/binary>>}.
