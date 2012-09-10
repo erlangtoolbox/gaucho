@@ -5,8 +5,8 @@
 -export([from/3, to/3]).
 
 from(Body, _ContentType, {record, user}) ->
-    [Email, Name] = string:tokens(xl_string:to_string(Body),";"),
+    [Email, Name] = string:tokens(xl_convert:to_string(Body),";"),
     {ok, #user{email=Email,name=Name}}.
 
 to(Result, _ContentType, {record, user}) ->
-    {ok, xl_string:to_binary(xl_string:join([Result#user.email, Result#user.name], ";"))}.
+    {ok, xl_convert:to_binary(xl_string:join([Result#user.email, Result#user.name], ";"))}.

@@ -14,7 +14,7 @@ parse_transform(Forms, Options ) ->
 -spec transform/2 :: (string()|list()|integer()|binary()|float(), atom()) -> any().
 transform(Value, To) ->
     Function = list_to_atom(string:concat("to_", atom_to_list(To))),
-    apply(xl_string, Function, [Value]).
+    apply(xl_convert, Function, [Value]).
 
 
 
@@ -77,12 +77,12 @@ get_attributes(_, _, Acc, _) ->
 
 get_api(Routes) ->
     {ok, Api} = get_api(Routes, ""),
-    xl_string:to_binary(Api).
+    xl_convert:to_binary(Api).
 
 get_api([#route{accepted_methods=[Method], raw_path=RawPath, output_spec=OutSpec, attribute_specs=InSpec}| Routes], Acc) ->
     do([error_m||
-            ApiString <- return(io_lib:format("~s ~s~n\tInputSpec: ~p~n\tOutputSpec: ~p ~n~n", [xl_string:to_upper(xl_string:to_string(Method)), RawPath, InSpec, OutSpec])),
-            %ApiString <- return(io_lib:format("~s ~s~n~n", [xl_string:to_upper(xl_string:to_string(Method)), RawPath])),
+            ApiString <- return(io_lib:format("~s ~s~n\tInputSpec: ~p~n\tOutputSpec: ~p ~n~n", [xl_string:to_upper(xl_convert:to_string(Method)), RawPath, InSpec, OutSpec])),
+            %ApiString <- return(io_lib:format("~s ~s~n~n", [xl_string:to_upper(xl_convert:to_string(Method)), RawPath])),
             get_api(Routes, Acc ++ ApiString)
         ]);
 get_api([], Acc) ->
