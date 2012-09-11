@@ -45,7 +45,7 @@ retrieve(Email) ->
 delete(Email) ->
     {ok, <<"User with email: '", Email/binary, "' deleted.">>}.
 
-
+%curl http://localhost:8080/user/search/something?field=name&value=Name
 -webmethod({
     "/user/search/{email}",
     [get],
