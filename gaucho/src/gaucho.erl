@@ -11,82 +11,11 @@
 parse_transform(Forms, Options ) ->
     gaucho_pt:parse_transform(Forms, Options).
 
--spec transform/2 :: (string()|list()|integer()|binary()|float(), atom()) -> any().
-transform(Value, To) ->
-    Function = list_to_atom(string:concat("to_", atom_to_list(To))),
-    apply(xl_convert, Function, [Value]).
 
 
 
 
-get_body(Req) ->
-    case cowboy_http_req:body(Req) of 
-        {ok, Body, Req1} ->
-            {ok, {Body, Req1}};
-        E -> E
-    end.
-get_attributes(Req, PathVariables, Attributes) ->
-        get_attributes(Req, PathVariables, [], Attributes).
 
-get_attributes(Req, PathVariables, Acc, 
-        [{{Name, {body, {ContentType, Converter}}}, Spec}| Attributes]) ->
-
-        %{ok, Body, Req} = cowboy_http_req:body(_Req),
-        %Content = Converter:from(Body, ContentType, Spec),
-        do([error_m ||
-            {Body, Req1} <- get_body(Req),
-            Content <- Converter:from(Body, ContentType, Spec),
-            get_attributes(Req1, PathVariables, [{Name, Content} | Acc], Attributes)
-        ]);
-        %Acc1 = lists:append(Acc, [{Name, Content}]),
-        %get_attributes(Req, PathVariables, Acc1, Attributes);
-
-get_attributes(Req, PathVariables, Acc, 
-        [{{Name, {body, ContentType}}, Spec}| Attributes]) ->
-        do([error_m ||
-            {Body, Req1} <- get_body(Req),
-            Content <- gaucho_default_converter:from(Body,ContentType, Spec),
-            get_attributes(Req1, PathVariables, [{Name, Content} | Acc], Attributes)
-        ]);
-
-get_attributes(Req, PathVariables, Acc, [{{Name, Spec}, AttributeType}| Attributes]) when is_atom(AttributeType) ->
-    do([error_m ||
-            {Val, Req1} <- case Spec of
-                path ->
-                    case xl_lists:kvfind(Name, PathVariables) of
-                        {ok, Value} -> {ok, {Value, Req}};
-                        undefined -> {error, {unknown_pathvariable, Name}}
-                    end;
-                'query' ->
-                    {ok, cowboy_http_req:qs_val(atom_to_binary(Name, utf8), Req)};
-
-                cookie ->
-                    {ok, cowboy_http_req:cookie(atom_to_binary(Name, utf8), Req)};
-
-                header ->
-                    {ok, cowboy_http_req:header(Name, Req)};
-                _ -> {error, {unknown_spec, Spec}}
-
-            end,
-            CValue <- return(transform(Val, AttributeType)),
-            get_attributes(Req, PathVariables, [{Name, CValue}| Acc], Attributes)
-    ]);
-
-get_attributes(_, _, Acc, _) ->
-    {ok, lists:reverse(Acc)}.
-
-get_api(Routes) ->
-    {ok, Api} = get_api(Routes, ""),
-    xl_convert:to_binary(Api).
-
-get_api([#route{accepted_methods=[Method], raw_path=RawPath, output_spec=OutSpec, attribute_specs=InSpec}| Routes], Acc) ->
-    do([error_m||
-            ApiString <- return(io_lib:format("~s ~s~n\tInputSpec: ~p~n\tOutputSpec: ~p ~n~n", [xl_string:to_upper(xl_convert:to_string(Method)), RawPath, InSpec, OutSpec])),
-            %ApiString <- return(io_lib:format("~s ~s~n~n", [xl_string:to_upper(xl_convert:to_string(Method)), RawPath])),
-            get_api(Routes, Acc ++ ApiString)
-        ]);
-get_api([], Acc) ->
-    {ok, Acc}.
 
 get_content_type({ContentType, _Converter}) ->
     ContentType;
@@ -98,7 +27,7 @@ process(AllRoutes = [Route|Routes], Req, State,  Module) ->
     {RawPath, _} = cowboy_http_req:raw_path(Req),
     case lists:last(Req#http_req.path) of
         <<"_api">> ->
-            {ok, Req1} = cowboy_http_req:reply(200, [], get_api(AllRoutes), Req),
+            {ok, Req1} = cowboy_http_req:reply(200, [], gaucho_utils:get_api(AllRoutes), Req),
             {ok, Req1, 200};
         _ ->
             case re:run(RawPath, Route#route.path, [{capture, all, list}]) of
@@ -114,7 +43,7 @@ process(AllRoutes = [Route|Routes], Req, State,  Module) ->
                     case lists:member(Method, Route#route.accepted_methods) of
                         true ->
                             PathVariables = extract_path_variables(Req, Route),
-                            {ok, Variables} = get_attributes(Req, PathVariables, Route#route.attribute_specs),
+                            {ok, Variables} = gaucho_utils:get_attributes(Req, PathVariables, Route#route.attribute_specs),
                             Attributes = [Val||{_, Val} <- Variables],
                             %io:format("Produces: ~p~n", [Route#route.produces] ),
                             case apply(Module, Route#route.handler, Attributes) of
