@@ -27,7 +27,7 @@ create(User) ->
     [get],
     {"text/plain", gaucho_test_converter},
     auto,
-    [{email, path}]
+    [{email, path, [{gaucho_validate, email}]}]
 }).
 -spec retrieve/1 :: (string()) -> error_m:monad(#user{}).
 retrieve(Email) ->

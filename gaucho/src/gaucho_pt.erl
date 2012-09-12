@@ -2,7 +2,7 @@
 
 -export([parse_transform/2]).
 
--include("route.hrl").
+-include("gaucho.hrl").
                 
 
 parse_transform(Forms, _Options) ->
@@ -73,6 +73,13 @@ prepare_route(RoutePattern) ->
       string:concat("^", Result),
       "$").
 
+adopt_attribute_sources([{Name, Spec}|AttributeSources]) ->
+    [#param{name=Name, from=Spec}|adopt_attribute_sources(AttributeSources)];
+adopt_attribute_sources([{Name, Spec, Validators}|AttributeSources]) ->
+    [#param{name=Name, from=Spec, validators=Validators}|adopt_attribute_sources(AttributeSources)];
+adopt_attribute_sources([]) ->
+    [].
+
 extract_webmethods(Forms) ->
     extract_webmethods(looking_for_annotation, nil, [], Forms).
 
@@ -89,7 +96,7 @@ extract_webmethods(looking_for_handler, WebmethodOpts, Acc,
       accepted_methods=HTTPMethods, 
       produces=Produces, 
       out_format=OutFormat, 
-      attribute_specs=lists:zip(AttributeSources, AttributeTypes),
+      attribute_specs=lists:zip(adopt_attribute_sources(AttributeSources), AttributeTypes),
       output_spec=gaucho_utils:get_output_type(Out),
       raw_path=element(1,WebmethodOpts)
      },

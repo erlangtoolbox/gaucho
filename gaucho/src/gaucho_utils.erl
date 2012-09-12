@@ -1,5 +1,5 @@
 -module(gaucho_utils).
--include("route.hrl").
+-include("gaucho.hrl").
 -include_lib("cowboy/include/http.hrl").
 -compile({parse_transform, do}).
 -compile(export_all).
@@ -45,32 +45,27 @@ get_body(Req) ->
 transform(Value, To) ->
     Function = list_to_atom(string:concat("to_", atom_to_list(To))),
     apply(xl_convert, Function, [Value]).
-
+-spec get_attributes/3 :: (#http_req{}, list(), list()) -> error_m:monad(any()).
 get_attributes(Req, PathVariables, Attributes) ->
         get_attributes(Req, PathVariables, [], Attributes).
 
 get_attributes(Req, PathVariables, Acc, 
-        [{{Name, {body, {ContentType, Converter}}}, Spec}| Attributes]) ->
+        [{#param{name=Name, from={body, {ContentType, Converter}}, validators=Validators}, AttrType}| Attributes]) ->
 
-        %{ok, Body, Req} = cowboy_http_req:body(_Req),
-        %Content = Converter:from(Body, ContentType, Spec),
         do([error_m ||
             {Body, Req1} <- get_body(Req),
-            Content <- Converter:from(Body, ContentType, Spec),
+            Content <- Converter:from(Body, ContentType, AttrType),
             get_attributes(Req1, PathVariables, [{Name, Content} | Acc], Attributes)
         ]);
-        %Acc1 = lists:append(Acc, [{Name, Content}]),
-        %get_attributes(Req, PathVariables, Acc1, Attributes);
 
 get_attributes(Req, PathVariables, Acc, 
-        [{{Name, {body, ContentType}}, Spec}| Attributes]) ->
+        [{#param{name=Name, from={body, ContentType}, validators=Validators}, Spec}| Attributes]) ->
         do([error_m ||
             {Body, Req1} <- get_body(Req),
             Content <- gaucho_default_converter:from(Body,ContentType, Spec),
             get_attributes(Req1, PathVariables, [{Name, Content} | Acc], Attributes)
         ]);
-%{{name, path|query|cookie|header}, AttributeType }
-get_attributes(Req, PathVariables, Acc, [{{Name, Spec}, AttributeType}| Attributes]) when is_atom(AttributeType) ->
+get_attributes(Req, PathVariables, Acc, [{#param{name=Name, from=Spec, validators=Validators}, AttributeType}| Attributes]) when is_atom(AttributeType) ->
     do([error_m ||
             {Val, Req1} <- case Spec of
                 path ->
