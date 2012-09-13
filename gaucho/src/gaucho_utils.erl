@@ -45,16 +45,19 @@ get_body(Req) ->
 transform(Value, To) ->
     Function = list_to_atom(string:concat("to_", atom_to_list(To))),
     apply(xl_convert, Function, [Value]).
+
 -spec get_attributes/3 :: (#http_req{}, list(), list()) -> error_m:monad(any()).
 get_attributes(Req, PathVariables, Attributes) ->
         get_attributes(Req, PathVariables, [], Attributes).
 
+-spec get_attributes/4 :: (#http_req{}, list(tuple()), list(), list()) -> list(tuple()).
 get_attributes(Req, PathVariables, Acc, 
         [{#param{name=Name, from={body, {ContentType, Converter}}, validators=Validators}, AttrType}| Attributes]) ->
 
         do([error_m ||
             {Body, Req1} <- get_body(Req),
             Content <- Converter:from(Body, ContentType, AttrType),
+            apply_validators(Content, Validators),
             get_attributes(Req1, PathVariables, [{Name, Content} | Acc], Attributes)
         ]);
 
@@ -63,6 +66,7 @@ get_attributes(Req, PathVariables, Acc,
         do([error_m ||
             {Body, Req1} <- get_body(Req),
             Content <- gaucho_default_converter:from(Body,ContentType, Spec),
+            apply_validators(Content, Validators),
             get_attributes(Req1, PathVariables, [{Name, Content} | Acc], Attributes)
         ]);
 get_attributes(Req, PathVariables, Acc, [{#param{name=Name, from=Spec, validators=Validators}, AttributeType}| Attributes]) when is_atom(AttributeType) ->
@@ -85,11 +89,33 @@ get_attributes(Req, PathVariables, Acc, [{#param{name=Name, from=Spec, validator
 
             end,
             CValue <- return(transform(Val, AttributeType)),
+            apply_validators(CValue, Validators),
             get_attributes(Req, PathVariables, [{Name, CValue}| Acc], Attributes)
     ]);
 
 get_attributes(_, _, Acc, _) ->
     {ok, lists:reverse(Acc)}.
+
+%% @doc apply list of validators to Value
+-spec apply_validators/2 :: (any(), list()) -> error_m:monad(any()).
+apply_validators(Value, [Validator|Validators]) ->
+    do([error_m ||
+            ValidatedValue <- apply_validator(Value, Validator),
+            apply_validators(ValidatedValue, Validators)
+        ]);
+apply_validators(Value, []) ->
+    ok.
+
+%% @doc apply Module:Method to Value
+%% Validator method shold have spec like following
+%% validate_meth/1 :: (any()) -> error_m:monad(any()).
+%% this method can accept more than one attribute, but value should be first:
+%% validate_meth/3 :: (any(), integer(), integer()) -> error_m:monad(any()).
+%% Result of this validate method should by only 'ok' or {error, reason}
+apply_validator(Value, {Module, Method}) ->
+    apply_validator(Value, {Module, Method, []});
+apply_validator(Value, {Module, Method, Attributes}) ->
+    apply(Module, Method, [Value|Attributes]).
 
 get_api(Routes) ->
     {ok, Api} = get_api(Routes, ""),

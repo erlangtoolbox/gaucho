@@ -43,32 +43,38 @@ process(AllRoutes = [Route|Routes], Req, State,  Module) ->
                     case lists:member(Method, Route#route.accepted_methods) of
                         true ->
                             PathVariables = extract_path_variables(Req, Route),
-                            {ok, Variables} = gaucho_utils:get_attributes(Req, PathVariables, Route#route.attribute_specs),
-                            Attributes = [Val||{_, Val} <- Variables],
-                            %io:format("Produces: ~p~n", [Route#route.produces] ),
-                            case apply(Module, Route#route.handler, Attributes) of
-                                {ok, Result} ->
-                                    {ok, Response} = prepare_response(Result, Route),
-                                    ContentType = get_content_type(Route#route.produces),
-                                    {ok, Req1} = cowboy_http_req:reply(200, [{'Content-Type', ContentType}], Response, Req),
-                                    {ok, Req1, 200};
-                                ok -> 
-                                    {ok, Req, 204};
-                                {error, Status} when is_integer(Status) ->
-                                    {ok, Req1} = cowboy_http_req:reply(Status, Req),
-                                    {ok, Req1, Status};
-                                {error, {Status, Message}} -> 
-                                    {ok, Req1} = cowboy_http_req:reply(Status, Message, Req),
-                                    {ok, Req1, Status};
+                            
+                            case gaucho_utils:get_attributes(Req, PathVariables, Route#route.attribute_specs) of
+                                {ok, Variables} ->
+                                    Attributes = [Val||{_, Val} <- Variables],
+                                    %io:format("Produces: ~p~n", [Route#route.produces] ),
+                                    case apply(Module, Route#route.handler, Attributes) of
+                                        {ok, Result} ->
+                                            {ok, Response} = prepare_response(Result, Route),
+                                            ContentType = get_content_type(Route#route.produces),
+                                            {ok, Req1} = cowboy_http_req:reply(200, [{'Content-Type', ContentType}], Response, Req),
+                                            {ok, Req1, 200};
+                                        ok -> 
+                                            {ok, Req, 204};
+                                        {error, Status} when is_integer(Status) ->
+                                            {ok, Req1} = cowboy_http_req:reply(Status, Req),
+                                            {ok, Req1, Status};
+                                        {error, {Status, Message}} -> 
+                                            {ok, Req1} = cowboy_http_req:reply(Status, [], Message, Req),
+                                            {ok, Req1, Status};
 
-                                {error, UnexpectedError} ->
-                                    io:format("~p~n", [UnexpectedError]),
-                                    {ok, Req1} = cowboy_http_req:reply(404, Req),
-                                    {ok, Req1, 404};
-                                UnexpectedResult  ->
-                                    Info = io_lib:format("~p~n", [UnexpectedResult]),
-                                    {ok, Req1} = cowboy_http_req:reply(500, list_to_binary(Info), Req),
-                                    {ok, Req1, 500}
+                                        {error, UnexpectedError} ->
+                                            io:format("~p~n", [UnexpectedError]),
+                                            {ok, Req1} = cowboy_http_req:reply(404, Req),
+                                            {ok, Req1, 404};
+                                        UnexpectedResult  ->
+                                            Info = io_lib:format("~p~n", [UnexpectedResult]),
+                                            {ok, Resp} = cowboy_http_req:reply(500, [], xl_convert:to_binary(Info), Req),
+                                            {ok, Resp, 500}
+                                    end;
+                                {error, Reason} ->
+                                    {ok, Resp} = cowboy_http_req:reply(400, [], xl_convert:to_binary(Reason), Req),
+                                    {ok, Resp, 400}
                             end;
                         false -> 
                             process(Routes, Req, State, Module)

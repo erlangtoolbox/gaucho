@@ -1,13 +1,16 @@
 -module(user_handler).
 
 
--export([create/1, retrieve/1, delete/1, search/3]).
+%-export([create/1, retrieve/1, delete/1, search/3, email_validator/1]).
+-compile(export_all).
+
 
 -behaviour(cowboy_http_handler).
 
 -compile({parse_transform, gaucho}).
 
 -include("user.hrl").
+-include_lib("gaucho/include/gaucho.hrl").
 
 %curl -X post -d "email;mname" http://localhost:8080/user
 -webmethod({
@@ -20,14 +23,13 @@
 -spec create/1 :: (#user{}) -> error_m:monad(#user{}).
 create(User) ->
     {ok, User}.
-
 %curl http://localhost:8080/user/email
 -webmethod({
     "/user/{email}",
     [get],
     {"text/plain", gaucho_test_converter},
     auto,
-    [{email, path, [{gaucho_validate, email}]}]
+    [{email, path, [{?MODULE, email_validator}]}]
 }).
 -spec retrieve/1 :: (string()) -> error_m:monad(#user{}).
 retrieve(Email) ->
@@ -56,3 +58,15 @@ delete(Email) ->
 -spec search/3 :: (binary(), binary(), binary()) -> error_m:monad(any()).
 search(Email, Field, Value) ->
     {ok, <<Email/binary, ": ",Field/binary, " = ", Value/binary>>}.
+
+
+-spec email_validator/1 :: (string()) -> error_m:monad(any()).
+email_validator(Value) ->
+    case re:run(Value,"^[a-z0-9]*@[a-z0-9]*.[a-z0-9]{2,3}$", [global,{capture, all, list}]) of
+            {match, _} ->
+                ok;
+            nomatch ->
+                {error, invalid_email}
+    end.
+        
+
