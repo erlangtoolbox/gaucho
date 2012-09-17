@@ -56,23 +56,31 @@ get_attributes(Req, PathVariables, Attributes) ->
 
 -spec get_attributes/4 :: (#http_req{}, list(tuple()), list(), list()) -> list(tuple()).
 get_attributes(Req, PathVariables, Acc, 
-        [{#param{name=Name, from={body, {ContentType, Converter}}, validators=Validators}, AttrType}| Attributes]) ->
+        [{#param{name=Name, from={body, Spec}, validators=Validators}, AttrType}| Attributes]) ->
 
         do([error_m ||
             {Body, Req1} <- get_body(Req),
-            Content <- Converter:from(Body, ContentType, AttrType),
+            {ContentType, Converter} <- case Spec of
+                Type when not is_tuple(Type) ->
+                    {ok, {Type, gaucho_default_converter}};
+                {C, T} ->
+                    {ok, {C, T}}
+            end,
+            Content <- case {Body, AttrType} of
+                {<<"">>, {maybe, _Type}} ->
+                    {ok, undefined};
+                {<<"">>, Type} ->
+                    {error, body_is_empty};
+                {_, {maybe, Type}} ->
+                    {ok, Converter:from(Body, ContentType, Type)};
+                {_, Type} ->
+                    Converter:from(Body, ContentType, Type)
+            end,
+            %Content <- Converter:from(Body, ContentType, AttributeType),
             apply_validators(Content, Validators),
             get_attributes(Req1, PathVariables, [{Name, Content} | Acc], Attributes)
         ]);
 
-get_attributes(Req, PathVariables, Acc, 
-        [{#param{name=Name, from={body, ContentType}, validators=Validators}, Spec}| Attributes]) ->
-        do([error_m ||
-            {Body, Req1} <- get_body(Req),
-            Content <- gaucho_default_converter:from(Body,ContentType, Spec),
-            apply_validators(Content, Validators),
-            get_attributes(Req1, PathVariables, [{Name, Content} | Acc], Attributes)
-        ]);
 get_attributes(Req, PathVariables, Acc, [{#param{name=Name, from=Spec, validators=Validators}, AttributeType}| Attributes]) when is_atom(AttributeType) or is_tuple(AttributeType)->
     do([error_m ||
             {Val, Req1} <- case Spec of
