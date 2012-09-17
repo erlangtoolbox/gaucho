@@ -7,6 +7,7 @@
 
 -behaviour(cowboy_http_handler).
 
+-compile({parse_transform, do}).
 -compile({parse_transform, gaucho}).
 
 -include("user.hrl").
@@ -17,12 +18,23 @@
     "/user",
     [post],
     {"text/plain", gaucho_test_converter},
-    auto,
-    [{user, {body, {"text/plain", gaucho_test_converter}}}]
+    auto, [{user, {body, {"text/plain", gaucho_test_converter}}}]
 }).
 -spec create/1 :: (#user{}) -> error_m:monad(#user{}).
 create(User) ->
     {ok, User}.
+
+-webmethod({
+        "/user/test",
+        [get],
+        "text/plain",
+        auto,
+        [{id,'query'}]
+    }).
+-spec usr_tst/1 :: (option_m:monad(binary())) -> error_m:monad(any()).
+usr_tst(Id) ->
+    io:format("ID: ~p~n", [Id]),
+    ok.
 %curl http://localhost:8080/user/email
 -webmethod({
     "/user/{email}",
@@ -31,6 +43,7 @@ create(User) ->
     auto,
     [{email, path, [{?MODULE, email_validator}]}]
 }).
+
 -spec retrieve/1 :: (string()) -> error_m:monad(#user{}).
 retrieve(Email) ->
     {ok, #user{email=Email, name="Name"}}.
@@ -69,4 +82,3 @@ email_validator(Value) ->
                 {error, invalid_email}
     end.
         
-

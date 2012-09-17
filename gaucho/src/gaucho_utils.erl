@@ -42,9 +42,13 @@ get_body(Req) ->
     end.
 
 -spec transform/2 :: (string()|list()|integer()|binary()|float(), atom()) -> any().
-transform(Value, To) ->
+transform(Value, To) when is_atom(To)->
     Function = list_to_atom(string:concat("to_", atom_to_list(To))),
-    apply(xl_convert, Function, [Value]).
+    apply(xl_convert, Function, [Value]);
+transform(undefined, {maybe, To}) -> 
+    undefined;
+transform(Value, {maybe, To}) -> 
+    {ok, transform(Value, To)}.
 
 -spec get_attributes/3 :: (#http_req{}, list(), list()) -> error_m:monad(any()).
 get_attributes(Req, PathVariables, Attributes) ->
@@ -69,7 +73,7 @@ get_attributes(Req, PathVariables, Acc,
             apply_validators(Content, Validators),
             get_attributes(Req1, PathVariables, [{Name, Content} | Acc], Attributes)
         ]);
-get_attributes(Req, PathVariables, Acc, [{#param{name=Name, from=Spec, validators=Validators}, AttributeType}| Attributes]) when is_atom(AttributeType) ->
+get_attributes(Req, PathVariables, Acc, [{#param{name=Name, from=Spec, validators=Validators}, AttributeType}| Attributes]) when is_atom(AttributeType) or is_tuple(AttributeType)->
     do([error_m ||
             {Val, Req1} <- case Spec of
                 path ->
