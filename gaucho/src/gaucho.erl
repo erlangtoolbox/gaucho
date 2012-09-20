@@ -72,8 +72,11 @@ process(AllRoutes = [Route|Routes], Req, State,  Module) ->
                                             {ok, Resp} = cowboy_http_req:reply(500, [], xl_convert:to_binary(Info), Req),
                                             {ok, Resp, 500}
                                     end;
-                                {error, Reason} ->
+                                {error, Reason} when is_list(Reason) ->
                                     {ok, Resp} = cowboy_http_req:reply(400, [], xl_convert:to_binary(Reason), Req),
+                                    {ok, Resp, 400};
+                                {error, Reason} ->
+                                    {ok, Resp} = cowboy_http_req:reply(400, [], xl_convert:to_binary(xl_string:format("~p", [Reason])), Req),
                                     {ok, Resp, 400}
                             end;
                         false -> 
