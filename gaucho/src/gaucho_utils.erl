@@ -84,6 +84,8 @@ get_attributes(Req, PathVariables, Acc,
 get_attributes(Req, PathVariables, Acc, [{#param{name=Name, from=Spec, validators=Validators}, AttributeType}| Attributes]) when is_atom(AttributeType) or is_tuple(AttributeType)->
     do([error_m ||
             {Val, Req1} <- case Spec of
+                ip ->
+                    {ok, xl_string:join(tuple_to_list(cowboy_http_req:peer_addr(Req)), <<".">>)};
                 path ->
                     case xl_lists:kvfind(Name, PathVariables) of
                         {ok, Value} -> {ok, {Value, Req}};
