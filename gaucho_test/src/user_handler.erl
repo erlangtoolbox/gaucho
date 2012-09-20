@@ -1,7 +1,7 @@
 -module(user_handler).
 
 
-%-export([create/1, retrieve/1, delete/1, search/3, email_validator/1]).
+%-export([create/1, retrieve/1, delete/1, search/4, email_validator/1]).
 -compile(export_all).
 
 
@@ -66,11 +66,11 @@ delete(Email) ->
     [get],
     "text/plain",
     auto,
-    [{email, path}, {field, 'query'}, {value, 'query'}]
+    [{ip,ip}, {email, path}, {field, 'query'}, {value, 'query'}]
 }).
--spec search/3 :: (binary(), binary(), binary()) -> error_m:monad(any()).
-search(Email, Field, Value) ->
-    {ok, <<Email/binary, ": ",Field/binary, " = ", Value/binary>>}.
+-spec search/4 :: (binary(), binary(), binary(), binary()) -> error_m:monad(any()).
+search(Ip, Email, Field, Value) ->
+    {ok, <<"IP Address: '",Ip/binary,"' ",Email/binary, ": ",Field/binary, " = ", Value/binary>>}.
 
 
 -spec email_validator/1 :: (string()) -> error_m:monad(any()).
