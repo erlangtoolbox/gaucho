@@ -19,13 +19,13 @@
             ]}
         ]},
 		{listeners, [
-			{http_listener, 100, cowboy_tcp_transport, [{port, 8080}], cowboy_http_protocol, []},
-			{https_listener, 100, cowboy_ssl_transport, [
-				{port, 8443}, 
-				{certfile, "priv/ssl/cert.pem"},
-	            {keyfile, "priv/ssl/key.pem"}, 
-				{password, "cowboy"}
-			], cowboy_http_protocol, []}
+			{http, 100, [{port, 8080}]},
+            {https, 100,[
+                {port, 8443}, 
+                {certfile, "priv/ssl/cert.pem"},
+                {keyfile, "priv/ssl/key.pem"}, 
+                {password, "cowboy"}
+            ]}
 		]}
     ]}
 ]}.

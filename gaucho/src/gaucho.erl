@@ -1,7 +1,6 @@
 -module(gaucho).
 
 -include("gaucho.hrl").
--include_lib("cowboy/include/http.hrl").
 -compile({parse_transform, do}).
 
 -export([process/4, parse_transform/2, start/2]).
@@ -24,22 +23,21 @@ get_content_type(ContentType) ->
 
 %find handler for rawpath
 process(AllRoutes = [Route|Routes], Req, State,  Module) ->
-    {RawPath, _} = cowboy_http_req:raw_path(Req),
-    case lists:last(Req#http_req.path) of
+    {RawPath, _} = cowboy_req:path(Req),
+    RRawPath = xl_convert:to_string(RawPath),
+    {Path, _} = cowboy_req:path_info(Req),
+    case lists:last(Path) of
         <<"_api">> ->
-            {ok, Req1} = cowboy_http_req:reply(200, [], gaucho_utils:get_api(AllRoutes), Req),
+            {ok, Req1} = cowboy_req:reply(200, [], gaucho_utils:get_api(AllRoutes), Req),
             {ok, Req1, 200};
         _ ->
-            case re:run(RawPath, Route#route.path, [{capture, all, list}]) of
+            Match = re:run(RRawPath, Route#route.path, [{capture, all, list}]),
+            case Match of
                 nomatch ->
                     process(Routes, Req, State,  Module);
                 {match, _} ->
-                    Method = case cowboy_http_req:method(Req) of
-                        {RawMethod, _} when is_binary(RawMethod) ->
-                            binary_to_atom(RawMethod, utf8);
-                        {RawMethod, _} when is_atom(RawMethod) ->
-                            list_to_atom(string:to_lower(atom_to_list(RawMethod)))
-                    end,
+                    {RawMethod, _} = cowboy_req:method(Req),
+                    Method = xl_convert:to_atom(xl_string:to_lower(RawMethod)),
                     case lists:member(Method, Route#route.accepted_methods) of
                         true ->
                             PathVariables = extract_path_variables(Req, Route),
@@ -52,31 +50,31 @@ process(AllRoutes = [Route|Routes], Req, State,  Module) ->
                                         {ok, Result} ->
                                             {ok, Response} = prepare_response(Result, Route),
                                             ContentType = get_content_type(Route#route.produces),
-                                            {ok, Req1} = cowboy_http_req:reply(200, [{'Content-Type', ContentType}], Response, Req),
+                                            {ok, Req1} = cowboy_req:reply(200, [{<<"Content-Type">>, ContentType}], Response, Req),
                                             {ok, Req1, 200};
                                         ok -> 
                                             {ok, Req, 204};
                                         {error, Status} when is_integer(Status) ->
-                                            {ok, Req1} = cowboy_http_req:reply(Status, Req),
+                                            {ok, Req1} = cowboy_req:reply(Status, Req),
                                             {ok, Req1, Status};
                                         {error, {Status, Message}} -> 
-                                            {ok, Req1} = cowboy_http_req:reply(Status, [], Message, Req),
+                                            {ok, Req1} = cowboy_req:reply(Status, [], Message, Req),
                                             {ok, Req1, Status};
 
                                         {error, UnexpectedError} ->
                                             io:format("~p~n", [UnexpectedError]),
-                                            {ok, Req1} = cowboy_http_req:reply(404, Req),
+                                            {ok, Req1} = cowboy_req:reply(404, Req),
                                             {ok, Req1, 404};
                                         UnexpectedResult  ->
                                             Info = io_lib:format("~p~n", [UnexpectedResult]),
-                                            {ok, Resp} = cowboy_http_req:reply(500, [], xl_convert:to_binary(Info), Req),
+                                            {ok, Resp} = cowboy_req:reply(500, [], xl_convert:to_binary(Info), Req),
                                             {ok, Resp, 500}
                                     end;
                                 {error, Reason} when is_list(Reason) ->
-                                    {ok, Resp} = cowboy_http_req:reply(400, [], xl_convert:to_binary(Reason), Req),
+                                    {ok, Resp} = cowboy_req:reply(400, [], xl_convert:to_binary(Reason), Req),
                                     {ok, Resp, 400};
                                 {error, Reason} ->
-                                    {ok, Resp} = cowboy_http_req:reply(400, [], xl_convert:to_binary(xl_string:format("<p>Bad request: ~p</p>", [Reason])), Req),
+                                    {ok, Resp} = cowboy_req:reply(400, [], xl_convert:to_binary(xl_string:format("<p>Bad request: ~p</p>", [Reason])), Req),
                                     {ok, Resp, 400}
                             end;
                         false -> 
@@ -85,7 +83,7 @@ process(AllRoutes = [Route|Routes], Req, State,  Module) ->
             end
     end;
 process([], Req, State, _) ->
-    {ok, Req1} = cowboy_http_req:reply(404, [], <<"">>, Req),
+    {ok, Req1} = cowboy_req:reply(404, [], <<"">>, Req),
     {ok, Req1, State}.
 
 
@@ -100,7 +98,8 @@ extract_path_variables(Req, Route) ->
     case re:run(Route#route.raw_path, "{([^/:]*):?[^/]*}", [global, {capture, [1], list}]) of
 	{match, VariableNames} ->
 	    Keys = [list_to_atom(Name)||[Name] <- VariableNames],
-	    {RawPath, _} = cowboy_http_req:raw_path(Req),
+	    {Path, _} = cowboy_req:path(Req),
+        RawPath = xl_convert:to_string(Path),
 	    {match, [_|Values]} = re:run(RawPath, Route#route.path, [{capture, all, list}]),
 	    lists:zip(Keys, Values);
 	nomatch -> []
@@ -117,8 +116,8 @@ fill_path_variables(Variables, []) ->
 
 -spec start/2 :: (term(), [{atom(), pos_integer(), atom(), [term()], atom(), [term()]}]) -> error_m:monad(ok).
 start(Dispatch, Listeners) ->
-    xl_lists:eforeach(fun({Name, Acceptors, Transport, TransportOpts, Protocol, ProtocolOpts}) ->
-        cowboy:start_listener(Name, Acceptors, Transport, TransportOpts, Protocol, [{dispatch, Dispatch} | ProtocolOpts])
+    xl_lists:eforeach(fun({Name, Acceptors, TransportOpts}) ->
+        cowboy:start_http(Name, Acceptors, TransportOpts,[{dispatch, Dispatch}])
     end, Listeners).
 
 

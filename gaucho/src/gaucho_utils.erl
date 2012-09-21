@@ -1,6 +1,6 @@
 -module(gaucho_utils).
 -include("gaucho.hrl").
--include_lib("cowboy/include/http.hrl").
+%-include_lib("cowboy/include/http.hrl").
 -compile({parse_transform, do}).
 -compile(export_all).
 
@@ -35,7 +35,7 @@ get_output_type(Type) ->
     get_attribute_type(Type).
 
 get_body(Req) ->
-    case cowboy_http_req:body(Req) of 
+    case cowboy_req:body(Req) of 
         {ok, Body, Req1} ->
             {ok, {Body, Req1}};
         E -> E
@@ -50,11 +50,11 @@ transform(undefined, {maybe, To}) ->
 transform(Value, {maybe, To}) -> 
     {ok, transform(Value, To)}.
 
--spec get_attributes/3 :: (#http_req{}, list(), list()) -> error_m:monad(any()).
+-spec get_attributes/3 :: (cowboy_req:req(), list(), list()) -> error_m:monad(any()).
 get_attributes(Req, PathVariables, Attributes) ->
         get_attributes(Req, PathVariables, [], Attributes).
 
--spec get_attributes/4 :: (#http_req{}, list(tuple()), list(), list()) -> list(tuple()).
+-spec get_attributes/4 :: (cowboy_req:req(), list(tuple()), list(), list()) -> list(tuple()).
 get_attributes(Req, PathVariables, Acc, 
         [{#param{name=Name, from={body, Spec}, validators=Validators}, AttrType}| Attributes]) ->
 
@@ -85,7 +85,7 @@ get_attributes(Req, PathVariables, Acc, [{#param{name=Name, from=Spec, validator
     do([error_m ||
             {Val, Req1} <- case Spec of
                 ip ->
-                    {IpAddr, RetReq} = cowboy_http_req:peer_addr(Req),
+                    {IpAddr, RetReq} = cowboy_req:peer_addr(Req),
                     {ok, {xl_string:join(tuple_to_list(IpAddr), <<".">>), RetReq}};
                 path ->
                     case xl_lists:kvfind(Name, PathVariables) of
@@ -93,13 +93,13 @@ get_attributes(Req, PathVariables, Acc, [{#param{name=Name, from=Spec, validator
                         undefined -> {error, {unknown_pathvariable, Name}}
                     end;
                 'query' ->
-                    {ok, cowboy_http_req:qs_val(atom_to_binary(Name, utf8), Req)};
+                    {ok, cowboy_req:qs_val(atom_to_binary(Name, utf8), Req)};
 
                 cookie ->
-                    {ok, cowboy_http_req:cookie(atom_to_binary(Name, utf8), Req)};
+                    {ok, cowboy_req:cookie(atom_to_binary(Name, utf8), Req)};
 
                 header ->
-                    {ok, cowboy_http_req:header(Name, Req)};
+                    {ok, cowboy_req:header(Name, Req)};
                 _ -> {error, {unknown_spec, Spec}}
 
             end,
