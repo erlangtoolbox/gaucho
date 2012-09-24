@@ -25,12 +25,11 @@ get_content_type(ContentType) ->
 process(AllRoutes = [Route|Routes], Req, State,  Module) ->
     {RawPath, _} = cowboy_req:path(Req),
     RRawPath = xl_convert:to_string(RawPath),
-    {Path, _} = cowboy_req:path_info(Req),
-    case lists:last(Path) of
-        <<"_api">> ->
+    case re:run(RRawPath, "\/\_api", [{capture, all, list}]) of
+        {match, _} ->
             {ok, Req1} = cowboy_req:reply(200, [], gaucho_utils:get_api(AllRoutes), Req),
             {ok, Req1, 200};
-        _ ->
+        nomatch ->
             Match = re:run(RRawPath, Route#route.path, [{capture, all, list}]),
             case Match of
                 nomatch ->
