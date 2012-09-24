@@ -101,7 +101,8 @@ get_attributes(Req, PathVariables, Acc, [{#param{name=Name, from=Spec, validator
                     {ok, cowboy_req:cookie(atom_to_binary(Name, utf8), Req)};
 
                 header ->
-                    {ok, cowboy_req:header(Name, Req)};
+                    HeaderName = xl_convert:to_binary(Name),
+                    {ok, cowboy_req:header(HeaderName, Req)};
                 _ -> {error, {unknown_spec, Spec}}
 
             end,

@@ -25,15 +25,27 @@ create(User) ->
     {ok, User}.
 
 -webmethod({
-        "/user/test",
+        "/user/header",
+        [get],
+        "text/plain",
+        auto,
+        [{'user-agent', header}]
+    }).
+-spec usr_header/1 :: (option_m:monad(binary())) -> error_m:monad(any()).
+usr_header(Header) ->
+    io:format("User-Agent: ~p~n", [Header]),
+    ok.
+
+-webmethod({
+        "/user/uri",
         [get],
         "text/plain",
         auto,
         [{uri, request_uri}]
     }).
--spec usr_tst/1 :: (option_m:monad(binary())) -> error_m:monad(any()).
-usr_tst(Uri) ->
-    io:format("ID: ~p~n", [Uri]),
+-spec usr_uri/1 :: (option_m:monad(binary())) -> error_m:monad(any()).
+usr_uri(Uri) ->
+    io:format("Request URI: ~p~n", [Uri]),
     ok.
 %curl http://localhost:8080/user/email
 -webmethod({
