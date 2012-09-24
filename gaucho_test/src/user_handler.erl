@@ -29,11 +29,11 @@ create(User) ->
         [get],
         "text/plain",
         auto,
-        [{id,'query'}]
+        [{uri, request_uri}]
     }).
 -spec usr_tst/1 :: (option_m:monad(binary())) -> error_m:monad(any()).
-usr_tst(Id) ->
-    io:format("ID: ~p~n", [Id]),
+usr_tst(Uri) ->
+    io:format("ID: ~p~n", [Uri]),
     ok.
 %curl http://localhost:8080/user/email
 -webmethod({
@@ -59,18 +59,6 @@ retrieve(Email) ->
 -spec delete/1 :: (binary()) -> error_m:monad(any()).
 delete(Email) ->
     {ok, <<"User with email: '", Email/binary, "' deleted.">>}.
-
-%curl http://localhost:8080/user/search/something?field=name&value=Name
--webmethod({
-    "/user/search/{email}",
-    [get],
-    "text/plain",
-    auto,
-    [{ip,ip}, {email, path}, {field, 'query'}, {value, 'query'}]
-}).
--spec search/4 :: (binary(), binary(), binary(), binary()) -> error_m:monad(any()).
-search(Ip, Email, Field, Value) ->
-    {ok, <<"IP Address: '",Ip/binary,"' ",Email/binary, ": ",Field/binary, " = ", Value/binary>>}.
 
 
 -spec email_validator/1 :: (string()) -> error_m:monad(any()).
