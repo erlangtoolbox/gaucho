@@ -47,6 +47,18 @@ usr_header(Header) ->
 usr_uri(Uri) ->
     io:format("Request URI: ~p~n", [Uri]),
     ok.
+
+-webmethod({
+        "/user/qry",
+        [get],
+        "text/plain",
+        auto,
+        [{id, 'query'}, {name, 'query'}]
+    }).
+-spec usr_qry/2 :: (binary(), binary()) -> error_m:monad(any()).
+usr_qry(Id, Name) ->
+    io:format("Query string: {id: ~p, name: ~p}~n", [Id, Name]),
+    ok.
 %curl http://localhost:8080/user/email
 -webmethod({
     "/user/{email}",

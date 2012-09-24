@@ -95,10 +95,10 @@ get_attributes(Req, PathVariables, Acc, [{#param{name=Name, from=Spec, validator
                         undefined -> {error, {unknown_pathvariable, Name}}
                     end;
                 'query' ->
-                    {ok, cowboy_req:qs_val(atom_to_binary(Name, utf8), Req)};
+                    {ok, gaucho_req:qs_val_ignore_case(xl_convert:to_binary(Name), Req)};
 
                 cookie ->
-                    {ok, cowboy_req:cookie(atom_to_binary(Name, utf8), Req)};
+                    {ok, cowboy_req:cookie(xl_convert:to_binary(Name), Req)};
 
                 header ->
                     HeaderName = xl_convert:to_binary(Name),

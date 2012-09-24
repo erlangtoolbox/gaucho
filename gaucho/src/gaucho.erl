@@ -45,7 +45,6 @@ process(AllRoutes = [Route|Routes], Req, State,  Module) ->
                                 {ok, Variables} ->
                                     Attributes = [Val||{_, Val} <- Variables],
                                     %io:format("Produces: ~p~n", [Route#route.produces] ),
-                                    %io:format("Headers: ~p~n", [cowboy_req:headers(Req)]),
                                     case apply(Module, Route#route.handler, Attributes) of
                                         {ok, Result} ->
                                             {ok, Response} = prepare_response(Result, Route),
