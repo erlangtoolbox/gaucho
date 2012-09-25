@@ -98,7 +98,7 @@ get_attributes(Req, PathVariables, Acc, [{#param{name=Name, from=Spec, validator
                     {ok, gaucho_req:qs_val_ignore_case(xl_convert:to_binary(Name), Req)};
 
                 cookie ->
-                    {ok, cowboy_req:cookie(xl_convert:to_binary(Name), Req)};
+                    {ok, gaucho_req:cookie_ignore_case(xl_convert:to_binary(Name), Req)};
 
                 header ->
                     HeaderName = xl_convert:to_binary(Name),

@@ -59,6 +59,21 @@ usr_uri(Uri) ->
 usr_qry(Id, Name) ->
     io:format("Query string: {id: ~p, name: ~p}~n", [Id, Name]),
     ok.
+
+
+
+-webmethod({
+        "/user/cookie",
+        [get],
+        "text/plain",
+        auto,
+        [{id, cookie}, {name, cookie}]
+    }).
+-spec usr_cookie/2 :: (binary(), binary()) -> error_m:monad(any()).
+usr_cookie(Id, Name) ->
+    io:format("Cookie string: {id: ~p, name: ~p}~n", [Id, Name]),
+    ok.
+
 %curl http://localhost:8080/user/email
 -webmethod({
     "/user/{email}",
