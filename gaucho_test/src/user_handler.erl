@@ -29,11 +29,11 @@ create(User) ->
         [get],
         "text/plain",
         auto,
-        [{'user-agent', header}]
+        [{'user-agent', header}, {'some-header', header}]
     }).
--spec usr_header/1 :: (option_m:monad(binary())) -> error_m:monad(any()).
-usr_header(Header) ->
-    io:format("User-Agent: ~p~n", [Header]),
+-spec usr_header/2 :: (binary(), option_m:monad(binary())) -> error_m:monad(any()).
+usr_header(UA, SH) ->
+    io:format("User-Agent: ~p; Some-Header: ~p~n", [UA, SH]),
     ok.
 
 -webmethod({
