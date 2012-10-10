@@ -5,3 +5,4 @@ ebin
 lib/*
 out
 erl_crash.dump
+cscope.*

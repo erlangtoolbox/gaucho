@@ -70,7 +70,7 @@ process(AllRoutes = [Route|Routes], Req, State,  Module) ->
                                             {ok, Resp, 500}
                                     end;
                                 {error, Reason} when is_list(Reason) ->
-                                    {ok, Resp} = cowboy_req:reply(400, [], xl_convert:to_binary(Reason), Req),
+                                    {ok, Resp} = cowboy_req:reply(400, [], xl_string:format("Bad request:~n~s", [xl_string:join(Reason, <<"\n">>)]), Req),
                                     {ok, Resp, 400};
                                 {error, Reason} ->
                                     {ok, Resp} = cowboy_req:reply(400, [], xl_convert:to_binary(xl_string:format("<p>Bad request: ~p</p>", [Reason])), Req),
