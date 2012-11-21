@@ -11,7 +11,6 @@
 -compile({parse_transform, gaucho}).
 
 -include("user.hrl").
--include_lib("gaucho/include/gaucho.hrl").
 
 %curl -X post -d "email;mname" http://localhost:8080/user
 -webmethod({
@@ -24,37 +23,33 @@
 create(User) ->
     {ok, User}.
 
--webmethod({
-        "/user/header",
-        [get],
-        "text/plain",
-        auto,
-        [{'user-agent', header}, {'some-header', header}]
-    }).
--spec usr_header/2 :: (binary(), option_m:monad(binary())) -> error_m:monad(any()).
+-webmethod({"/user/header", [get], "text/plain", auto, [
+    {'user-agent', header},
+    {'some-header', header}
+]}).
+-spec usr_header/2 :: (binary(), option_m:monad(binary())) -> error_m:monad(string()).
 usr_header(UA, SH) ->
-    io:format("User-Agent: ~p; Some-Header: ~p~n", [UA, SH]),
-    ok.
+    {ok, xl_string:format("UA: ~p, Other: ~p~n", [UA, SH])}.
 
 -webmethod({
-        "/user/uri",
-        [get],
-        "text/plain",
-        auto,
-        [{uri, request_uri}]
-    }).
+    "/user/uri",
+    [get],
+    "text/plain",
+    auto,
+    [{uri, request_uri}]
+}).
 -spec usr_uri/1 :: (option_m:monad(binary())) -> error_m:monad(any()).
 usr_uri(Uri) ->
     io:format("Request URI: ~p~n", [Uri]),
     ok.
 
 -webmethod({
-        "/user/qry",
-        [get],
-        "text/plain",
-        auto,
-        [{id, 'query'}, {name, 'query'}]
-    }).
+    "/user/qry",
+    [get],
+    "text/plain",
+    auto,
+    [{id, 'query'}, {name, 'query'}]
+}).
 -spec usr_qry/2 :: (binary(), binary()) -> error_m:monad(any()).
 usr_qry(Id, Name) ->
     io:format("Query string: {id: ~p, name: ~p}~n", [Id, Name]),
@@ -63,12 +58,12 @@ usr_qry(Id, Name) ->
 
 
 -webmethod({
-        "/user/cookie",
-        [get],
-        "text/plain",
-        auto,
-        [{id, cookie}, {name, cookie}]
-    }).
+    "/user/cookie",
+    [get],
+    "text/plain",
+    auto,
+    [{id, cookie}, {name, cookie}]
+}).
 -spec usr_cookie/2 :: (binary(), binary()) -> error_m:monad(any()).
 usr_cookie(Id, Name) ->
     io:format("Cookie string: {id: ~p, name: ~p}~n", [Id, Name]),
@@ -85,7 +80,7 @@ usr_cookie(Id, Name) ->
 
 -spec retrieve/1 :: (string()) -> error_m:monad(#user{}).
 retrieve(Email) ->
-    {ok, #user{email=Email, name="Name"}}.
+    {ok, #user{email = Email, name = "Name"}}.
 
 %curl -x delete http://localhost:8080/user/email
 -webmethod({
@@ -97,15 +92,15 @@ retrieve(Email) ->
 }).
 -spec delete/1 :: (binary()) -> error_m:monad(any()).
 delete(Email) ->
-    {ok, <<"User with email: '", Email/binary, "' deleted.">>}.
+    {ok, <<"User with email: '", Email / binary, "' deleted.">>}.
 
 
 -spec email_validator/1 :: (string()) -> error_m:monad(any()).
 email_validator(Value) ->
-    case re:run(Value,"^[a-z0-9]*@[a-z0-9]*.[a-z0-9]{2,3}$", [global,{capture, all, list}]) of
-            {match, _} ->
-                ok;
-            nomatch ->
-                {error, invalid_email}
+    case re:run(Value, "^[a-z0-9]*@[a-z0-9]*.[a-z0-9]{2,3}$", [global, {capture, all, list}]) of
+        {match, _} ->
+            ok;
+        nomatch ->
+            {error, invalid_email}
     end.
         

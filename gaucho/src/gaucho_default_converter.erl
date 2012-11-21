@@ -1,10 +1,26 @@
 -module(gaucho_default_converter).
+
 -behaviour(gaucho_converter).
 
 -export([from/3, to/3]).
 
-to(Result, _ContentType, _OutSpec)->
-    {ok, xl_convert:to_binary(Result)}.
+to(Value, _ContentType, _Type) ->
+    try
+        {ok, xl_convert:to(binary, Value)}
+    catch
+        _:_ -> {error, xl_string:format("cannot cast ~p to ~p", [Value, binary])}
+    end.
 
-from(Body, _ContentType, OutputSpec) ->
-    {ok, apply(xl_convert, xl_convert:mk_atom(["to_", OutputSpec]), [Body])}.
+from(Value, _ContentType, Type) when is_atom(Type) ->
+    try
+        {ok, xl_convert:to(Type, Value)}
+    catch
+        _:_ -> {error, xl_string:format("cannot cast ~p to ~p", [Value, Type])}
+    end;
+from(undefined, _ContentType, {option, _Type}) -> {ok, undefined};
+from(Value, ContentType, {option, Type}) ->
+    case from(Value, ContentType, Type) of
+        {ok, X} -> {ok, {ok, X}};
+        E -> E
+    end.
+

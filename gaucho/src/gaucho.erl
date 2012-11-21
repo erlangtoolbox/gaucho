@@ -1,124 +1,82 @@
 -module(gaucho).
 
--include("gaucho.hrl").
 -compile({parse_transform, do}).
 
--export([process/4, parse_transform/2, start/2]).
+-include("gaucho_webmethod.hrl").
 
--spec parse_transform/2 :: (list(), list()) -> list().
+-export([process/3, parse_transform/2, start/2, generate_api/1]).
 
-parse_transform(Forms, Options ) ->
+parse_transform(Forms, Options) ->
     gaucho_pt:parse_transform(Forms, Options).
 
-
-
-
-
-
-
-get_content_type({ContentType, _Converter}) ->
-    ContentType;
-get_content_type(ContentType) ->
-    ContentType.
-
-%find handler for rawpath
-process(AllRoutes = [Route|Routes], Req, State,  Module) ->
-    {RawPath, _} = cowboy_req:path(Req),
-    RRawPath = xl_convert:to_string(RawPath),
-    case re:run(RRawPath, "\/\_api", [{capture, all, list}]) of
-        {match, _} ->
-            {ok, Req1} = cowboy_req:reply(200, [], gaucho_utils:get_api(AllRoutes), Req),
-            {ok, Req1, 200};
-        nomatch ->
-            Match = re:run(RRawPath, Route#route.path, [{capture, all, list}]),
-            case Match of
-                nomatch ->
-                    process(Routes, Req, State,  Module);
-                {match, _} ->
-                    {RawMethod, _} = cowboy_req:method(Req),
-                    Method = xl_convert:to_atom(xl_string:to_lower(RawMethod)),
-                    case lists:member(Method, Route#route.accepted_methods) of
-                        true ->
-                            PathVariables = extract_path_variables(Req, Route),
-                            
-                            case gaucho_utils:get_attributes(Req, PathVariables, Route#route.attribute_specs) of
-                                {ok, Variables} ->
-                                    Attributes = [Val||{_, Val} <- Variables],
-                                    %io:format("Produces: ~p~n", [Route#route.produces] ),
-                                    case apply(Module, Route#route.handler, Attributes) of
-                                        {ok, Result} ->
-                                            {ok, Response} = prepare_response(Result, Route),
-                                            ContentType = get_content_type(Route#route.produces),
-                                            {ok, Req1} = cowboy_req:reply(200, [{<<"Content-Type">>, ContentType}], Response, Req),
-                                            {ok, Req1, 200};
-                                        ok -> 
-                                            {ok, Req, 204};
-                                        {error, Status} when is_integer(Status) ->
-                                            {ok, Req1} = cowboy_req:reply(Status, Req),
-                                            {ok, Req1, Status};
-                                        {error, {Status, Message}} -> 
-                                            {ok, Req1} = cowboy_req:reply(Status, [], Message, Req),
-                                            {ok, Req1, Status};
-
-                                        {error, UnexpectedError} ->
-                                            io:format("~p~n", [UnexpectedError]),
-                                            {ok, Req1} = cowboy_req:reply(404, Req),
-                                            {ok, Req1, 404};
-                                        UnexpectedResult  ->
-                                            Info = io_lib:format("~p~n", [UnexpectedResult]),
-                                            {ok, Resp} = cowboy_req:reply(500, [], xl_convert:to_binary(Info), Req),
-                                            {ok, Resp, 500}
-                                    end;
-                                {error, Reason} when is_list(Reason) ->
-                                    {ok, Resp} = cowboy_req:reply(400, [], xl_string:format("Bad request:~n~s", [xl_string:join(Reason, <<"\n">>)]), Req),
-                                    {ok, Resp, 400};
-                                {error, Reason} ->
-                                    {ok, Resp} = cowboy_req:reply(400, [], xl_convert:to_binary(xl_string:format("<p>Bad request: ~p</p>", [Reason])), Req),
-                                    {ok, Resp, 400}
-                            end;
-                        false -> 
-                            process(Routes, Req, State, Module)
-                    end
-            end
-    end;
-process([], Req, State, _) ->
-    {ok, Req1} = cowboy_req:reply(404, [], <<"">>, Req),
-    {ok, Req1, State}.
-
-
-prepare_response(Result, #route{out_format=raw}) ->
-    {ok, Result};
-prepare_response(Result, #route{output_spec=OutputSpec,produces={ContentType, Converter},out_format=auto})->
-    Converter:to(Result, ContentType, OutputSpec);
-prepare_response(Result, R = #route{produces=ContentType, out_format=auto})->
-    prepare_response(Result, R#route{produces={ContentType, gaucho_default_converter}}).
-
-extract_path_variables(Req, Route) ->
-    case re:run(Route#route.raw_path, "{([^/:]*):?[^/]*}", [global, {capture, [1], list}]) of
-	{match, VariableNames} ->
-	    Keys = [list_to_atom(Name)||[Name] <- VariableNames],
-	    {Path, _} = cowboy_req:path(Req),
-        RawPath = xl_convert:to_string(Path),
-	    {match, [_|Values]} = re:run(RawPath, Route#route.path, [{capture, all, list}]),
-	    lists:zip(Keys, Values);
-	nomatch -> []
+process(WebMethods, Request, State) ->
+    Callback = xl_application:get_env(gaucho, callback, gaucho_callback),
+    Body = case cowboy_req:body(Request) of
+        {ok, B, _} -> B;
+        {error, Reason} -> Reason
+    end,
+    {Url, _} = cowboy_req:url(Request),
+    Callback:request(Url, Body),
+    case perform(Request, WebMethods) of
+        {ok, Status} when is_integer(Status) ->
+            {ok, Resp} = cowboy_req:reply(Status, Request),
+            {ok, Resp, State};
+        {ok, {Status, ContentType, Content}} ->
+            {ok, Resp} = cowboy_req:reply(Status, [{<<"Content-Type">>, ContentType}], Content, Request),
+            {ok, Resp, State};
+        {error, Status} when is_integer(Status) ->
+            {ok, Resp} = cowboy_req:reply(Status, Request),
+            Callback:error(Status, <<"">>, Url, Body),
+            {ok, Resp, State};
+        {error, {400, Content}} when is_list(Content) ->
+            {ok, Resp} = cowboy_req:reply(400, [], xl_string:join(Content, <<"\n">>), Request),
+            Callback:error(400, Content, Url, Body),
+            {ok, Resp, State};
+        {error, {Status, Content}} ->
+            {ok, Resp} = cowboy_req:reply(Status, [], xl_string:join(Content, <<"\n">>), Request),
+            Callback:error(Status, Content, Url, Body),
+            {ok, Resp, State}
     end.
 
+perform(Request, WebMethods) ->
+    {Path, _} = cowboy_req:path(Request),
+    {HttpMethod, _} = gaucho_cowboy:http_method(Request),
+    case gaucho_webmethod:find_webmethod(Path, HttpMethod, WebMethods) of
+        {ok, WebMethod = #webmethod{module = Module, function = Function}} ->
+            case gaucho_cowboy:build_arguments(Request, WebMethod) of
+                {ok, Arguments} ->
+                    case apply(Module, Function, Arguments) of
+                        {ok, Content} ->
+                            ContentType = gaucho_webmethod:content_type(WebMethod),
+                            {ok, Response} = prepare_response(Content, WebMethod),
+                            {ok, {200, ContentType, Response}};
+                        ok -> {ok, 204};
+                        E = {error, Status} when is_integer(Status) -> E;
+                        E = {error, {Status, _}} when is_integer(Status) -> E;
+                        {error, UnexpectedError} -> {error, {500, UnexpectedError}};
+                        UnexpectedResult -> {error, {500, UnexpectedResult}}
+                    end;
+                {error, Reason} ->
+                    {error, {400, Reason}}
+            end;
+        undefined -> {error, 404}
+    end.
 
-
-fill_path_variables(Variables, [PathVariable = {Key, _}| PathVariables]) ->
-    fill_path_variables(lists:keyreplace(Key, 1, Variables, PathVariable), PathVariables);
-
-fill_path_variables(Variables, []) ->
-    Variables.
-
+prepare_response(Result, #webmethod{result_format = raw}) ->
+    {ok, Result};
+prepare_response(Result, #webmethod{result_type = ResultType, produces = {ContentType, Converter}, result_format = auto}) ->
+    Converter:to(Result, ContentType, ResultType);
+prepare_response(Result, R = #webmethod{produces = ContentType, result_format = auto}) ->
+    prepare_response(Result, R#webmethod{produces = {ContentType, gaucho_default_converter}}).
 
 -spec start/2 :: (term(), [{atom(), pos_integer(), atom(), [term()], atom(), [term()]}]) -> error_m:monad(ok).
 start(Dispatch, Listeners) ->
     xl_lists:eforeach(fun({Name, Acceptors, TransportOpts}) ->
-        cowboy:start_http(Name, Acceptors, TransportOpts,[{dispatch, Dispatch}])
+        cowboy:start_http(Name, Acceptors, TransportOpts, [{dispatch, Dispatch}])
     end, Listeners).
 
-
-
-
+generate_api(Mapping) ->
+    Calls = lists:map(fun(#webmethod{http_methods = Methods, raw_path = RawPath, param_spec = ParamSpec, result_type = ResultType}) ->
+        xl_string:format("~s ~p~n\tParams: ~p~n\tOutputSpec: ~p ~n", [RawPath, Methods, ParamSpec, ResultType])
+    end, Mapping),
+    {ok, xl_string:join(Calls, <<"\n">>)}.
