@@ -35,9 +35,7 @@ build_arguments(Request, Body, #webmethod{path = Path, raw_path = RawPath, param
                 do([error_m ||
                     {Value, Request2} <- value(Bindings, R, Body, Name, Source),
                     Converted <- Converter:from(Value, ContentType, Type),
-                    xl_lists:eforeach(fun(V) ->
-                        validate(Converted, V),
-                end, Validators),
+                    xl_lists:eforeach(fun(V) -> validate(Converted, V) end, Validators),
                     return({[Converted | Values], Request2})
                 ])
             end, {[], Request}, Params),
