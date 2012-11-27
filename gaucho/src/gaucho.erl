@@ -49,6 +49,8 @@ perform(Request, WebMethods) ->
             case gaucho_cowboy:build_arguments(Request, WebMethod) of
                 {ok, Arguments} ->
                     case apply(Module, Function, Arguments) of
+                        {ok, {302, _Location}} = Redirect->
+                            Redirect;
                         {ok, Content} ->
                             ContentType = gaucho_webmethod:content_type(WebMethod),
                             {ok, Response} = prepare_response(Content, WebMethod),

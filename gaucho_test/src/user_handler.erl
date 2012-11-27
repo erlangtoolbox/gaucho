@@ -56,6 +56,9 @@ usr_qry(Id, Name) ->
     ok.
 
 
+-webmethod({"/user/redirect", [get], "text/plain", auto, []}).
+-spec(redirect() -> error_m:monad(binary())).
+redirect() -> {ok, {302, <<"http://google.com">>}}.
 
 -webmethod({
     "/user/cookie",
