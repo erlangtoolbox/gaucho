@@ -7,7 +7,7 @@
 -include("gaucho_webmethod.hrl").
 
 %% API
--export([http_method/1, path_bindings/3, build_arguments/2]).
+-export([http_method/1, path_bindings/3, build_arguments/3]).
 
 http_method(Request) ->
     {RawMethod, Request2} = cowboy_req:method(Request),
@@ -23,7 +23,7 @@ path_bindings(RegExpPath, RawPath, Request) ->
         nomatch -> []
     end.
 
-build_arguments(Request, #webmethod{path = Path, raw_path = RawPath, param_spec = Params}) ->
+build_arguments(Request, Body, #webmethod{path = Path, raw_path = RawPath, param_spec = Params}) ->
     Bindings = path_bindings(Path, RawPath, Request),
     do([error_m ||
         {Arguments, _} <- xl_lists:efoldl(
@@ -33,29 +33,26 @@ build_arguments(Request, #webmethod{path = Path, raw_path = RawPath, param_spec 
                     X -> X
                 end,
                 do([error_m ||
-                    {Value, Request2} <- value(Bindings, R, Name, Source),
+                    {Value, Request2} <- value(Bindings, R, Body, Name, Source),
                     Converted <- Converter:from(Value, ContentType, Type),
-                    xl_lists:eforeach(fun(V) -> validate(Converted, V) end, Validators),
+                    xl_lists:eforeach(fun(V) ->
+                        validate(Converted, V),
+                end, Validators),
                     return({[Converted | Values], Request2})
                 ])
             end, {[], Request}, Params),
         return(lists:reverse(Arguments))
     ]).
 
-value(_, Request, _, request_uri) -> {ok, cowboy_req:url(Request)};
-value(_, Request, _, ip) ->
+value(_, Request, _, _, request_uri) -> {ok, cowboy_req:url(Request)};
+value(_, Request, _, _, ip) ->
     {IpAddr, Request2} = cowboy_req:peer_addr(Request),
     {ok, {xl_string:join(tuple_to_list(IpAddr), <<".">>), Request2}};
-value(Bindings, _Request, Name, path) -> {ok, xl_lists:kvfind(Name, Bindings)};
-value(_Bindings, Request, Name, 'query') -> {ok, gaucho_req:qs_val_ignore_case(Name, Request)};
-value(_Bindings, Request, Name, cookie) -> {ok, gaucho_req:cookie_ignore_case(Name, Request)};
-value(_Bindings, Request, Name, header) -> {ok, cowboy_req:header(xl_convert:to(binary, Name), Request)};
-value(_Bindings, Request, _Name, body) ->
-    case cowboy_req:body(Request) of
-        {ok, Body, Request1} -> {ok, {Body, Request1}};
-        E -> E
-    end.
-
+value(Bindings, _Request, _, Name, path) -> {ok, xl_lists:kvfind(Name, Bindings)};
+value(_Bindings, Request, _, Name, 'query') -> {ok, gaucho_req:qs_val_ignore_case(Name, Request)};
+value(_Bindings, Request, _, Name, cookie) -> {ok, gaucho_req:cookie_ignore_case(Name, Request)};
+value(_Bindings, Request, _, Name, header) -> {ok, cowboy_req:header(xl_convert:to(binary, Name), Request)};
+value(_Bindings, Request, Body, _Name, body) -> {ok, {Body, Request}}.
 
 validate(Value, {Module, Method}) ->
     validate(Value, {Module, Method, []});

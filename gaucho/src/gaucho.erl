@@ -11,42 +11,42 @@ parse_transform(Forms, Options) ->
 
 process(WebMethods, Request, State) ->
     Callback = xl_application:get_env(gaucho, callback, gaucho_callback),
-    Body = case cowboy_req:body(Request) of
-        {ok, B, _} -> B;
-        {error, Reason} -> Reason
+    {Body, UpdatedRequest} = case cowboy_req:body(Request) of
+        {ok, B, Request1} -> {B, Request1};
+        {error, Reason} -> {Reason, Request}
     end,
-    {Url, _} = cowboy_req:url(Request),
+    {Url, _} = cowboy_req:url(UpdatedRequest),
     Callback:request(Url, Body),
-    case perform(Request, WebMethods) of
+    case perform(UpdatedRequest, Body, WebMethods) of
         {ok, Status} when is_integer(Status) ->
-            {ok, Resp} = cowboy_req:reply(Status, Request),
+            {ok, Resp} = cowboy_req:reply(Status, UpdatedRequest),
             {ok, Resp, State};
         {ok, {302, Location}} ->
-            {ok, Resp} = cowboy_req:reply(302, [{<<"Location">>, xl_convert:to(binary, Location)}], Request),
+            {ok, Resp} = cowboy_req:reply(302, [{<<"Location">>, xl_convert:to(binary, Location)}], UpdatedRequest),
             {ok, Resp, State};
         {ok, {Status, ContentType, Content}} ->
-            {ok, Resp} = cowboy_req:reply(Status, [{<<"Content-Type">>, ContentType}], Content, Request),
+            {ok, Resp} = cowboy_req:reply(Status, [{<<"Content-Type">>, ContentType}], Content, UpdatedRequest),
             {ok, Resp, State};
         {error, Status} when is_integer(Status) ->
-            {ok, Resp} = cowboy_req:reply(Status, Request),
+            {ok, Resp} = cowboy_req:reply(Status, UpdatedRequest),
             Callback:error(Status, <<"">>, Url, Body),
             {ok, Resp, State};
         {error, {400, Content}} when is_list(Content) ->
-            {ok, Resp} = cowboy_req:reply(400, [], xl_string:join(Content, <<"\n">>), Request),
+            {ok, Resp} = cowboy_req:reply(400, [], xl_string:join(Content, <<"\n">>), UpdatedRequest),
             Callback:error(400, Content, Url, Body),
             {ok, Resp, State};
         {error, {Status, Content}} ->
-            {ok, Resp} = cowboy_req:reply(Status, [], xl_convert:to(binary, Content), Request),
+            {ok, Resp} = cowboy_req:reply(Status, [], xl_convert:to(binary, xl_string:format("~p", [Content])), UpdatedRequest),
             Callback:error(Status, Content, Url, Body),
             {ok, Resp, State}
     end.
 
-perform(Request, WebMethods) ->
+perform(Request, Body, WebMethods) ->
     {Path, _} = cowboy_req:path(Request),
     {HttpMethod, _} = gaucho_cowboy:http_method(Request),
     case gaucho_webmethod:find_webmethod(Path, HttpMethod, WebMethods) of
         {ok, WebMethod = #webmethod{module = Module, function = Function}} ->
-            case gaucho_cowboy:build_arguments(Request, WebMethod) of
+            case gaucho_cowboy:build_arguments(Request, Body, WebMethod) of
                 {ok, Arguments} ->
                     case apply(Module, Function, Arguments) of
                         {ok, {302, _Location}} = Redirect->
@@ -62,7 +62,7 @@ perform(Request, WebMethods) ->
                         UnexpectedResult -> {error, {500, UnexpectedResult}}
                     end;
                 {error, Reason} ->
-                    {error, {400, Reason}}
+                    {error, {500, Reason}}
             end;
         undefined -> {error, 404}
     end.
