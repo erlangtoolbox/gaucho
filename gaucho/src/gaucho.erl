@@ -22,7 +22,7 @@ process(WebMethods, Request, State) ->
             {ok, Resp} = cowboy_req:reply(Status, Request),
             {ok, Resp, State};
         {ok, {302, Location}} ->
-            {ok, Resp} = cowboy_req:reply(302, [{<<"Location">>, xl_convert:to_binary(Location)}], Request),
+            {ok, Resp} = cowboy_req:reply(302, [{<<"Location">>, xl_convert:to(binary, Location)}], Request),
             {ok, Resp, State};
         {ok, {Status, ContentType, Content}} ->
             {ok, Resp} = cowboy_req:reply(Status, [{<<"Content-Type">>, ContentType}], Content, Request),
@@ -36,7 +36,7 @@ process(WebMethods, Request, State) ->
             Callback:error(400, Content, Url, Body),
             {ok, Resp, State};
         {error, {Status, Content}} ->
-            {ok, Resp} = cowboy_req:reply(Status, [], xl_string:join(Content, <<"\n">>), Request),
+            {ok, Resp} = cowboy_req:reply(Status, [], xl_convert:to(binary, Content), Request),
             Callback:error(Status, Content, Url, Body),
             {ok, Resp, State}
     end.
