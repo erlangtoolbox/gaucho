@@ -21,6 +21,9 @@ process(WebMethods, Request, State) ->
         {ok, Status} when is_integer(Status) ->
             {ok, Resp} = cowboy_req:reply(Status, Request),
             {ok, Resp, State};
+        {ok, {302, Location}} ->
+            {ok, Resp} = cowboy_req:reply(302, [{<<"Location">>, xl_convert:to_binary(Location)}], Request),
+            {ok, Resp, State};
         {ok, {Status, ContentType, Content}} ->
             {ok, Resp} = cowboy_req:reply(Status, [{<<"Content-Type">>, ContentType}], Content, Request),
             {ok, Resp, State};
