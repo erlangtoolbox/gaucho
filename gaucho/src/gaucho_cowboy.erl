@@ -46,7 +46,11 @@ value(_, Request, _, _, request_uri) -> {ok, cowboy_req:url(Request)};
 value(_, Request, _, _, ip) ->
     {IpAddr, Request2} = cowboy_req:peer_addr(Request),
     {ok, {xl_string:join(tuple_to_list(IpAddr), <<".">>), Request2}};
-value(Bindings, _Request, _, Name, path) -> {ok, xl_lists:kvfind(Name, Bindings)};
+value(Bindings, Request, _, Name, path) -> 
+    case xl_lists:kvfind(Name, Bindings) of
+        undefined -> {ok, {undefined, Request}};
+        {ok, Value} -> {ok, {Value, Request}}
+    end;
 value(_Bindings, Request, _, Name, 'query') -> {ok, gaucho_req:qs_val_ignore_case(Name, Request)};
 value(_Bindings, Request, _, Name, cookie) -> {ok, gaucho_req:cookie_ignore_case(Name, Request)};
 value(_Bindings, Request, _, Name, header) -> {ok, cowboy_req:header(xl_convert:to(binary, Name), Request)};
