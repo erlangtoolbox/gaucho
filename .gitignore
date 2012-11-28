@@ -6,3 +6,4 @@ lib/*
 out
 erl_crash.dump
 cscope.*
+workspace.xml
