@@ -30,8 +30,10 @@ build_arguments(Request, Body, #webmethod{path = Path, raw_path = RawPath, param
             fun(#webmethod_param{name = Name, from = From, type = Type, validators = Validators}, {Values, R}) ->
                 {Source, {ContentType, Converter}} = case From of
                     S when is_atom(S) -> {S, {"x-erlang/unknown-value", gaucho_default_converter}};
+                    {S, C} when is_atom(C) -> {S, {"x-erlang/unknown-value", C}};
                     X -> X
                 end,
+              io:format("Converter: ~p~n", [Converter]),
                 do([error_m ||
                     {Value, Request2} <- value(Bindings, R, Body, Name, Source),
                     Converted <- Converter:from(Value, ContentType, Type),
