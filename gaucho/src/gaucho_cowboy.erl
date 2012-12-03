@@ -33,7 +33,6 @@ build_arguments(Request, Body, #webmethod{path = Path, raw_path = RawPath, param
                     {S, C} when is_atom(C) -> {S, {"x-erlang/unknown-value", C}};
                     X -> X
                 end,
-              io:format("Converter: ~p~n", [Converter]),
                 do([error_m ||
                     {Value, Request2} <- value(Bindings, R, Body, Name, Source),
                     Converted <- Converter:from(Value, ContentType, Type),
