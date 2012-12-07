@@ -31,10 +31,6 @@ process(WebMethods, Request, State) ->
             {ok, Resp} = cowboy_req:reply(Status, UpdatedRequest),
             Callback:error(Status, <<"">>, Url, Body),
             {ok, Resp, State};
-        {error, {400, Content}} when is_list(Content) ->
-            {ok, Resp} = cowboy_req:reply(400, [], xl_string:join(Content, <<"\n">>), UpdatedRequest),
-            Callback:error(400, Content, Url, Body),
-            {ok, Resp, State};
         {error, {Status, Content}} ->
             {ok, Resp} = cowboy_req:reply(Status, [], xl_convert:to(binary, xl_string:format("~p", [Content])), UpdatedRequest),
             Callback:error(Status, Content, Url, Body),
@@ -62,7 +58,7 @@ perform(Request, Body, WebMethods) ->
                         UnexpectedResult -> {error, {500, UnexpectedResult}}
                     end;
                 {error, Reason} ->
-                    {error, {500, Reason}}
+                    {error, {400, Reason}}
             end;
         undefined -> {error, 404}
     end.
