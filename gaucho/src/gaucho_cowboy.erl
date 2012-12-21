@@ -44,6 +44,8 @@ build_arguments(Request, Body, #webmethod{path = Path, raw_path = RawPath, param
     ]).
 
 value(_, Request, _, _, request_uri) -> {ok, cowboy_req:url(Request)};
+value(_, Request, _, _, query_string) -> {ok, gaucho_req:qs_lowercase(Request)};
+value(_, Request, _, _, query_values) -> {ok, cowboy_req:qs_vals(Request)};
 value(_, Request, _, _, ip) ->
     {IpAddr, Request2} = cowboy_req:peer_addr(Request),
     {ok, {xl_string:join(tuple_to_list(IpAddr), <<".">>), Request2}};

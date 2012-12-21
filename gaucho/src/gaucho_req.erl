@@ -1,5 +1,5 @@
 -module(gaucho_req).
--export([qs_val_ignore_case/2, cookie_ignore_case/2]).
+-export([qs_val_ignore_case/2, cookie_ignore_case/2, qs_lowercase/1]).
 
 -spec qs_val_ignore_case/2 :: (binary()|atom(), cowboy_req:req()) -> {binary()|undefined, cowboy_req:req()}.
 qs_val_ignore_case(Name, Req) ->
@@ -19,3 +19,9 @@ req_item_ignore_case(Name, Req, Fun) ->
         undefined ->
             {undefined, Req1}
     end.
+
+-spec(qs_lowercase(cowboy_req:req()) -> {binary(), cowboy_req:req()}).
+qs_lowercase(Req) ->
+    {QueryString, Req1} = cowboy_req:qs(Req),
+    {xl_string:to_lower(QueryString), Req1}.
+
