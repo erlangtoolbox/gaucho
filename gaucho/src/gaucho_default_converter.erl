@@ -11,6 +11,8 @@ to(Value, _ContentType, _Type) ->
         _:_ -> {error, xl_string:format("cannot cast ~p to ~p", [Value, binary])}
     end.
 
+from(undefined, _ContentType, Type) when is_atom(Type)->
+    {error, xl_string:format("Mandatory parameter can\'t be undefined. Type ~p~n", [Type])};
 from(Value, _ContentType, Type) when is_atom(Type) ->
     try
         {ok, xl_convert:to(Type, Value)}
