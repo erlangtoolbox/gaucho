@@ -19,6 +19,7 @@ mapping_test() ->
                 #webmethod_param{name = login, from = path, type = string}
             ],
             result_type = string,
+            module = test_web,
             function = f1,
             raw_path = <<"/f1/{email}/{login}">>
         },
@@ -28,6 +29,7 @@ mapping_test() ->
             produces = "text/plain",
             param_spec = [#webmethod_param{name = email, from = path, type = string}],
             result_type = string,
+            module = test_web,
             function = f2,
             raw_path = <<"/f2/{email:\\d\\d}/1">>
         }
