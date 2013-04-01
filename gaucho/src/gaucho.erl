@@ -72,8 +72,6 @@ prepare_response(Result, R = #webmethod{produces = ContentType, result_format = 
 
 -spec start/2 :: (term(), [{atom(), pos_integer(), atom(), [term()], atom(), [term()]}]) -> error_m:monad(ok).
 start(Disp, Listeners) ->
-    io:format("Disp:~p~n", [Disp]),
-    
     Dispatch = cowboy_router:compile(Disp),
     xl_lists:eforeach(fun({Name, Acceptors, TransportOpts}) ->
                 cowboy:start_http(Name, Acceptors, TransportOpts, [{env, [{dispatch, Dispatch}]}])
