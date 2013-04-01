@@ -17,7 +17,7 @@ parse_transform(Forms, _Options) ->
         {eof, Line}
     ]),
     FirstFun = lists:keyfind(function, 1, Forms2),
-    Export = {attribute, 0, export, [{init, 3}, {handle, 2}, {terminate, 2}, {'_api', 0}]},
+    Export = {attribute, 0, export, [{init, 3}, {handle, 2}, {terminate, 3}, {'_api', 0}]},
     FormsWithExport = xl_lists:insert_before(FirstFun, Export, Forms2),
     [Form || Form <- FormsWithExport, element(3, Form) =/= webmethod].
 
@@ -31,8 +31,9 @@ cowboy_init_ast() ->
     ]}.
 
 cowboy_terminate_ast() ->
-    {function, 0, terminate, 2, [
+    {function, 0, terminate, 3, [
         {clause, 0, [
+            {var, 0, '_Reason'},
             {var, 0, '_Req'},
             {var, 0, '_State'}
         ], [], [{atom, 0, ok}]}
