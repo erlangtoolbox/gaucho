@@ -27,7 +27,7 @@ qs_lowercase(Req) ->
 
 qs_vals(Req) ->
     {QSVals, Req1} = cowboy_req:qs_vals(Req),
-    {qs_vals(QSVals), Req1}.
+    {qs_vals_lowercase(QSVals), Req1}.
 
 
 
