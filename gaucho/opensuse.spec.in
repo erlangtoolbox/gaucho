@@ -1,0 +1,42 @@
+%define realname gaucho
+%define revision {{REVISION}}
+%define install_dir %_libdir/erlang/lib
+
+Name:          strikead-erlang-%realname
+Version:       {{VERSION}}
+Release:       {{RELEASE}}
+License:       Proprietary
+Vendor:        StrikeAd
+Packager:      Aleksey Morarash <aleksey.morarash@strikead.com>
+Group:         Development/Languages/Erlang
+Source:        %name.tar.gz
+Summary:       An extension to simplify writing RESTful services on cowboy.
+URL:           https://github.com/strikead/%realname/tarball/%revision
+Requires:      erlang
+BuildRequires: erlang make
+BuildArch:     noarch
+
+%description
+An extension to simplify writing RESTful services on cowboy.
+
+%prep
+%setup -n strikead-%realname-%revision/gaucho
+
+%build
+make
+
+%install
+# erlang application and docs
+install --mode=755 --directory %buildroot%install_dir/%realname-%version/ebin
+install --mode=644 ebin/* %buildroot%install_dir/%realname-%version/ebin
+
+%files
+%defattr(-,root,root)
+%dir %install_dir/%realname-%version
+%dir %install_dir/%realname-%version/ebin
+%install_dir/%realname-%version/ebin/*
+
+%changelog
+* Thu Apr 11 2013 Aleksey Morarash <aleksey.morarash@strikead.com> 0.1.0-1
+- Initial build for OpenSuse 12.2.
+
