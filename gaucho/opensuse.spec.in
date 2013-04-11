@@ -13,7 +13,7 @@ Source:        %name.tar.gz
 Summary:       An extension to simplify writing RESTful services on cowboy.
 URL:           https://github.com/strikead/%realname/tarball/%revision
 Requires:      erlang
-BuildRequires: erlang make
+BuildRequires: erlang make strikead-erlang-erlandox
 BuildArch:     noarch
 
 %description
