@@ -20,7 +20,7 @@ clean:
 
 VERSION=`cat version`
 RELEASE=`cat release`
-REVISION=`git --no-pager log --max-count=1 --format=format:%H`
+REVISION=`git --no-pager log --max-count=1 --format=format:%h`
 
 spec: opensuse.spec.in
 	cat $< | \
