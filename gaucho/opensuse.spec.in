@@ -12,7 +12,7 @@ Group:         Development/Languages/Erlang
 Source:        %name.tar.gz
 Summary:       An extension to simplify writing RESTful services on cowboy.
 URL:           https://github.com/strikead/%realname/tarball/%revision
-Requires:      erlang
+Requires:      erlang-cowboy
 BuildRequires: erlang make strikead-erlang-erlandox
 BuildArch:     noarch
 
@@ -37,6 +37,6 @@ install --mode=644 ebin/* %buildroot%install_dir/%realname-%version/ebin
 %install_dir/%realname-%version/ebin/*
 
 %changelog
-* Thu Apr 11 2013 Aleksey Morarash <aleksey.morarash@strikead.com> 0.1.0-1
+* Thu Apr 11 2013 Aleksey Morarash <aleksey.morarash@strikead.com> 0.1.0-2
 - Initial build for OpenSuse 12.2.
 
