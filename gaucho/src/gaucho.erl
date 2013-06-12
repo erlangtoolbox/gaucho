@@ -25,7 +25,6 @@ process(WebMethods, Request, State) ->
             {ok, Resp} = cowboy_req:reply(302, [{<<"Location">>, xl_convert:to(binary, Location)}], UpdatedRequest),
             {ok, Resp, State};
         {ok, {Status, ContentType, Content}} ->
-            io:format("Content: ~p~n", [Content]),
             
             {ok, Resp} = cowboy_req:reply(Status, [{<<"Content-Type">>, ContentType}], Content, UpdatedRequest),
             {ok, Resp, State};
@@ -46,8 +45,6 @@ perform(Request, Body, State, WebMethods) ->
         {ok, WebMethod = #webmethod{module = Module, function = Function}} ->
             case gaucho_cowboy:build_arguments(Request, Body, State, WebMethod) of
                 {ok, Arguments} ->
-                    io:format("Arguments:~p~n", [Arguments]),
-                    
                     case apply(Module, Function, Arguments) of
                         {ok, {302, _Location}} = Redirect->
                             Redirect;
