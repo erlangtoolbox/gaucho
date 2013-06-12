@@ -14,7 +14,7 @@
     {env, [
         {dispatch, [
             {'_', [
-                {"/user/[...]", user_handler, []}
+                {"/user/[...]", user_handler, [{field1, blabla}]}
             ]}
         ]},
 		{listeners, [

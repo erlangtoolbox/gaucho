@@ -12,6 +12,18 @@
 
 -include("user.hrl").
 
+
+%curl localhost:8080/user/app_handler_opts
+-webmethod({
+    "/user/app_handler_opts",
+    [get],
+    "text/plain",
+    raw,
+    [{field1, state}]
+}).
+-spec(app_handler_opts(binary()) -> error_m:monad(any())).
+app_handler_opts(Opt) ->
+    {ok, Opt}.
 %curl -X post -d "email;mname" http://localhost:8080/user
 -webmethod({
     "/user",
@@ -31,8 +43,7 @@ create(User) ->
 usr_header(UA, SH) ->
     {ok, xl_string:format("UA: ~p, Other: ~p~n", [UA, SH])}.
 
--webmethod({
-    "/user/uri",
+-webmethod({ "/user/uri",
     [get],
     "text/plain",
     auto,
@@ -107,3 +118,4 @@ email_validator(Value) ->
             {error, invalid_email}
     end.
         
+

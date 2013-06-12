@@ -24,9 +24,9 @@ parse_transform(Forms, _Options) ->
 cowboy_init_ast() ->
     {function, 0, init, 3, [
         {clause, 0, [
-            {tuple, 0, [{var, 0, '_Any'}, {atom, 0, http}]}, {var, 0, 'Req'}, {nil, 0}
+            {tuple, 0, [{var, 0, '_Any'}, {atom, 0, http}]}, {var, 0, 'Req'}, {var, 0, 'State'}
         ], [], [
-            {tuple, 0, [{atom, 0, ok}, {var, 0, 'Req'}, {atom, 0, undefined}]}
+            {tuple, 0, [{atom, 0, ok}, {var, 0, 'Req'}, {var, 0, 'State'}]}
         ]}
     ]}.
 

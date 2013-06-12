@@ -17,7 +17,7 @@ process(WebMethods, Request, State) ->
     end,
     {Url, _} = cowboy_req:url(UpdatedRequest),
     Callback:request(Url, Body),
-    case perform(UpdatedRequest, Body, WebMethods) of
+    case perform(UpdatedRequest, Body, State, WebMethods) of
         {ok, Status} when is_integer(Status) ->
             {ok, Resp} = cowboy_req:reply(Status, UpdatedRequest),
             {ok, Resp, State};
@@ -25,6 +25,8 @@ process(WebMethods, Request, State) ->
             {ok, Resp} = cowboy_req:reply(302, [{<<"Location">>, xl_convert:to(binary, Location)}], UpdatedRequest),
             {ok, Resp, State};
         {ok, {Status, ContentType, Content}} ->
+            io:format("Content: ~p~n", [Content]),
+            
             {ok, Resp} = cowboy_req:reply(Status, [{<<"Content-Type">>, ContentType}], Content, UpdatedRequest),
             {ok, Resp, State};
         {error, Status} when is_integer(Status) ->
@@ -37,13 +39,15 @@ process(WebMethods, Request, State) ->
             {ok, Resp, State}
     end.
 
-perform(Request, Body, WebMethods) ->
+perform(Request, Body, State, WebMethods) ->
     {Path, _} = cowboy_req:path(Request),
     {HttpMethod, _} = gaucho_cowboy:http_method(Request),
     case gaucho_webmethod:find_webmethod(Path, HttpMethod, WebMethods) of
         {ok, WebMethod = #webmethod{module = Module, function = Function}} ->
-            case gaucho_cowboy:build_arguments(Request, Body, WebMethod) of
+            case gaucho_cowboy:build_arguments(Request, Body, State, WebMethod) of
                 {ok, Arguments} ->
+                    io:format("Arguments:~p~n", [Arguments]),
+                    
                     case apply(Module, Function, Arguments) of
                         {ok, {302, _Location}} = Redirect->
                             Redirect;
