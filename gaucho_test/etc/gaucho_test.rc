@@ -1,0 +1,3 @@
+NODE_NAME=gaucho_test@127.0.0.1
+COOKIE=gaucho_test
+CLEAN_BOOT=start_clean
