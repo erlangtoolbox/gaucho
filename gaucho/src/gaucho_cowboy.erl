@@ -47,7 +47,7 @@ value(_, Request, _, _, _, request_uri) -> {ok, cowboy_req:url(Request)};
 value(_, Request, _, _, _, query_string) -> {ok, gaucho_req:qs_lowercase(Request)};
 value(_, Request, _, _, _, query_values) -> {ok, gaucho_req:qs_vals(Request)};
 value(_, Request, _, _, _, ip) ->
-    {IpAddr, Request2} = cowboy_req:peer(Request),
+    {{IpAddr, _Port}, Request2} = cowboy_req:peer(Request),
     {ok, {xl_string:join(tuple_to_list(IpAddr), <<".">>), Request2}};
 value(Bindings, Request, _, _State, Name, path) -> 
     case xl_lists:kvfind(Name, Bindings) of

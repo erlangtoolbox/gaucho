@@ -83,6 +83,18 @@ usr_cookie(Id, Name) ->
     io:format("Cookie string: {id: ~p, name: ~p}~n", [Id, Name]),
     ok.
 
+%curl http://localhost:8080/user/ip
+-webmethod({
+    "/user/ip",
+    [get],
+    "text/plain",
+    auto,
+    [{ip, ip}]
+}).
+-spec usr_ip/1 :: (binary()) -> error_m:monad(any()).
+usr_ip(Ip) ->
+    io:format("Ip:~p~n", [Ip]),
+    {ok, Ip}.
 %curl http://localhost:8080/user/email
 -webmethod({
     "/user/{email}",
