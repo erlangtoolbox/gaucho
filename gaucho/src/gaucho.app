@@ -5,7 +5,9 @@
     {applications, [
         kernel,
         stdlib,
+        jiffy,
         xl_stdlib,
+        xl_json,
         cowboy
     ]},
     {env, [

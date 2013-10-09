@@ -7,17 +7,18 @@
 
 parse_transform(Forms, _Options) ->
     {eof, Line} = lists:keyfind(eof, 1, Forms),
-    Mapping = erl_parse:abstract([api_webmethod(gaucho_webmethod:module(Forms)) | gaucho_webmethod:mapping(Forms)]),
+    Mapping = erl_parse:abstract([swagger_webmethod(gaucho_webmethod:module(Forms))|[api_webmethod(gaucho_webmethod:module(Forms)) | gaucho_webmethod:mapping(Forms)]]),
     Forms1 = lists:keydelete(eof, 1, Forms),
     Forms2 = lists:append(Forms1, [
         cowboy_handle_ast(Mapping),
         cowboy_init_ast(),
         cowboy_terminate_ast(),
         api_ast(Mapping),
+        swagger_ast(Mapping),
         {eof, Line}
     ]),
     FirstFun = lists:keyfind(function, 1, Forms2),
-    Export = {attribute, 0, export, [{init, 3}, {handle, 2}, {terminate, 3}, {'_api', 0}]},
+    Export = {attribute, 0, export, [{init, 3}, {handle, 2}, {terminate, 3}, {'_api', 0}, {'_swagger', 0}]},
     FormsWithExport = xl_lists:insert_before(FirstFun, Export, Forms2),
     [Form || Form <- FormsWithExport, element(3, Form) =/= webmethod].
 
@@ -73,4 +74,27 @@ api_webmethod(Module) ->
         module = Module,
         function = '_api',
         raw_path = "/_api"
+    }.
+
+swagger_ast(Mapping) ->
+    {function, 0, '_swagger', 0, [
+        {clause, 0, [],
+            [], [
+            {call, 0, {remote, 0, {atom, 0, gaucho}, {atom, 0, generate_swagger_api}}, [
+                Mapping
+            ]}
+        ]}
+    ]}.
+
+swagger_webmethod(Module) ->
+    #webmethod{
+        path = "/_swagger",
+        http_methods = [get],
+        produces = {"application/json", swagger_converter},
+        result_format = auto,
+        param_spec = [],
+        result_type = string,
+        module = Module,
+        function = '_swagger',
+        raw_path = "/_swagger"
     }.

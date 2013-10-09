@@ -9,3 +9,5 @@ cscope.*
 workspace.xml
 tags
 Emakefile
+swagger.erl
+swagger.hrl

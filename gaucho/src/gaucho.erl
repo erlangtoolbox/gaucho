@@ -3,8 +3,9 @@
 -compile({parse_transform, do}).
 
 -include("gaucho_webmethod.hrl").
+-include("swagger.hrl").
 
--export([process/3, parse_transform/2, start/2, generate_api/1]).
+-export([process/3, parse_transform/2, start/2, generate_api/1, generate_swagger_api/1]).
 
 parse_transform(Forms, Options) ->
     gaucho_pt:parse_transform(Forms, Options).
@@ -38,8 +39,7 @@ process(WebMethods, Request, State) ->
             {ok, Resp, State}
     end.
 
-perform(Request, Body, State, WebMethods) ->
-    {Path, _} = cowboy_req:path(Request),
+perform(Request, Body, State, WebMethods) -> {Path, _} = cowboy_req:path(Request),
     {HttpMethod, _} = gaucho_cowboy:http_method(Request),
     case gaucho_webmethod:find_webmethod(Path, HttpMethod, WebMethods) of
         {ok, WebMethod = #webmethod{module = Module, function = Function}} ->
@@ -83,3 +83,10 @@ generate_api(Mapping) ->
         xl_string:format("~s ~p~n\tParams: ~p~n\tOutputSpec: ~p ~n", [RawPath, Methods, ParamSpec, ResultType])
     end, Mapping),
     {ok, xl_string:join(Calls, <<"\n">>)}.
+
+generate_swagger_api(_Mapping) ->
+    {ok, #swagger{apiVersion = <<"1.0">>}}.
+    % Calls = lists:map(fun(#webmethod{http_methods = Methods, raw_path = RawPath, param_spec = ParamSpec, result_type = ResultType}) ->
+        % xl_string:format("~s ~p~n\tParams: ~p~n\tOutputSpec: ~p ~n", [RawPath, Methods, ParamSpec, ResultType])
+    % end, Mapping),
+    % {ok, xl_string:join(Calls, <<"\n">>)}.
