@@ -71,8 +71,7 @@ prepare_response(Result, #webmethod{result_type = ResultType, produces = {Conten
 prepare_response(Result, R = #webmethod{produces = ContentType, result_format = auto}) ->
     prepare_response(Result, R#webmethod{produces = {ContentType, gaucho_default_converter}}).
 
--spec start/2 :: (term(), [{atom(), pos_integer(), atom(), [term()], atom(), [term()]}]) -> error_m:monad(ok).
-start(Disp, Listeners) ->
+-spec start/2 :: (term(), [{atom(), pos_integer(), atom(), [term()], atom(), [term()]}]) -> error_m:monad(ok).  start(Disp, Listeners) ->
     Dispatch = cowboy_router:compile(Disp),
     xl_lists:eforeach(fun({Name, Acceptors, TransportOpts}) ->
                 cowboy:start_http(Name, Acceptors, TransportOpts, [{env, [{dispatch, Dispatch}]}])
@@ -84,8 +83,42 @@ generate_api(Mapping) ->
     end, Mapping),
     {ok, xl_string:join(Calls, <<"\n">>)}.
 
-generate_swagger_api(_Mapping) ->
-    {ok, #swagger{apiVersion = <<"1.0">>}}.
+generate_swagger_parameters(GauchoParamsSpec) ->
+    lists:foldl(
+        fun(#webmethod_param{name = Name, from = From, type = Type}, Acc) -> 
+                Required = case Type of
+                    {option, _Type} -> false;
+                    _Type -> true
+                end,
+                ParamType = case From of
+                    {Val, _Spec} -> Val;
+                    Val -> Val
+                end,
+                case lists:member(ParamType, [path, 'query', body, header]) of
+                    true ->
+                        [#parameter{name = Name, paramType = ParamType, required = Required}| Acc];
+                    false -> Acc
+                end
+        end, [], GauchoParamsSpec).
+
+generate_swagger_api(Mapping) ->
+    Res = lists:foldl(fun(#webmethod{raw_path = RawPath_, http_methods = [Method], param_spec = ParamsSpec} = _WebMethod, Acc)-> 
+
+                RawPath = xl_convert:to(binary, RawPath_), 
+                case lists:keyfind(RawPath, 2, Acc) of
+                    false ->
+                        [#api{path = RawPath, operations = [#operation{method = xl_string:to_upper(xl_convert:to(binary, Method)), parameters = generate_swagger_parameters(ParamsSpec)}]}| Acc];
+                    Found ->
+                        NewAapi = Found#api{operations = [#operation{method = xl_string:to_upper(xl_convert:to(binary, Method)),
+                                    parameters = generate_swagger_parameters(ParamsSpec)
+                                }|Found#api.operations]},
+                        lists:keyreplace(RawPath, 2, Acc, NewAapi)
+                end
+        end, [], Mapping),
+
+
+    {ok, #swagger{apiVersion = <<"1.0">>,
+            apis = Res}}.
     % Calls = lists:map(fun(#webmethod{http_methods = Methods, raw_path = RawPath, param_spec = ParamSpec, result_type = ResultType}) ->
         % xl_string:format("~s ~p~n\tParams: ~p~n\tOutputSpec: ~p ~n", [RawPath, Methods, ParamSpec, ResultType])
     % end, Mapping),

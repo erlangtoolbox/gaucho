@@ -5,8 +5,8 @@
 -export([from/3, to/3]).
 
 to(Value, _ContentType, _Type) ->
-    swagger:to_json(Value).
+    {ok, swagger:to_json(Value)}.
 
 from(Value, _ContentType, _Type) ->
-    swagger:from_json(Value).
+    {ok, swagger:from_json(Value)}.
 

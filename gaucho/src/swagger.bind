@@ -1,3 +1,23 @@
+{parameter, [
+        {name, string},
+        {paramType, string},
+        {required, boolean},
+        {type, {string, <<"string">>}}
+    ]}.
+{operation, [
+        {method, string},
+        {summary, {string, <<"An operation w/o summary">>}},
+        {parameters, {list, parameter, []}},
+        {nickname, {string, <<"">>}}
+    ]}.
+{api, [
+        {path, string},
+        {operations, {list, operation, []}}
+    ]}.
 {swagger, [
-        {apiVersion, string}
+        {apiVersion, string},
+        {swaggerVersion, {string, <<"1.2">>}},
+        {basePath, {string, <<"">>}},
+        {resourcePath, {string, <<"/">>}},
+        {apis, {list, api, []}}
     ]}.

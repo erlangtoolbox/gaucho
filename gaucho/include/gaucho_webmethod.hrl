@@ -1,5 +1,6 @@
 -record(webmethod, {
     path = erlang:error({required, path}) :: binary(),
+    summary :: binary(),
     http_methods = [get] :: [atom()],
     produces = "text/plain" :: string(),
     result_format = auto :: auto | raw,
