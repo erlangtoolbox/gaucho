@@ -94,9 +94,16 @@ generate_swagger_parameters(GauchoParamsSpec) ->
                     {Val, _Spec} -> Val;
                     Val -> Val
                 end,
+                SwaggerType = case Type of
+                    binary -> <<"string">>;
+                    float -> <<"float">>;
+                    integer -> <<"integer">>;
+                    boolean -> <<"boolean">>;
+                    _ -> <<"string">>
+                end,
                 case lists:member(ParamType, [path, 'query', body, header]) of
                     true ->
-                        [#parameter{name = Name, paramType = ParamType, required = Required}| Acc];
+                        [#parameter{name = Name, paramType = ParamType, required = Required, type = SwaggerType}| Acc];
                     false -> Acc
                 end
         end, [], GauchoParamsSpec).
