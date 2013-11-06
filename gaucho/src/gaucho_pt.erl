@@ -18,7 +18,7 @@ parse_transform(Forms, _Options) ->
         {eof, Line}
     ]),
     FirstFun = lists:keyfind(function, 1, Forms2),
-    Export = {attribute, 0, export, [{init, 3}, {handle, 2}, {terminate, 3}, {'_api', 0}, {'_swagger', 0}]},
+    Export = {attribute, 0, export, [{init, 3}, {handle, 2}, {terminate, 3}, {'_api', 0}, {'_swagger', 2}]},
     FormsWithExport = xl_lists:insert_before(FirstFun, Export, Forms2),
     [Form || Form <- FormsWithExport, element(3, Form) =/= webmethod].
 
@@ -77,11 +77,13 @@ api_webmethod(Module) ->
     }.
 
 swagger_ast(Mapping) ->
-    {function, 0, '_swagger', 0, [
-        {clause, 0, [],
+    {function, 0, '_swagger', 2, [
+            {clause, 0, [{var, 0, 'Host'},{var, 0, 'Port'}],
             [], [
             {call, 0, {remote, 0, {atom, 0, gaucho}, {atom, 0, generate_swagger_api}}, [
-                Mapping
+                Mapping,
+                {var, 0, 'Host'},
+                {var, 0, 'Port'}
             ]}
         ]}
     ]}.
@@ -92,7 +94,7 @@ swagger_webmethod(Module) ->
         http_methods = [get],
         produces = {"application/json", swagger_converter},
         result_format = auto,
-        param_spec = [],
+        param_spec = [{webmethod_param,host,host,binary,[]},{webmethod_param,port,port,binary,[]}],
         result_type = string,
         module = Module,
         function = '_swagger',

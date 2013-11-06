@@ -44,6 +44,8 @@ build_arguments(Request, Body, State, #webmethod{path = Path, raw_path = RawPath
     ]).
 
 value(_, Request, _, _, _, request_uri) -> {ok, cowboy_req:url(Request)};
+value(_, Request, _, _, _, host) -> {ok, cowboy_req:host(Request)};
+value(_, Request, _, _, _, port) -> {ok, cowboy_req:port(Request)};
 value(_, Request, _, _, _, query_string) -> {ok, gaucho_req:qs_lowercase(Request)};
 value(_, Request, _, _, _, query_values) -> {ok, gaucho_req:qs_vals(Request)};
 value(_, Request, _, _, _, ip) ->

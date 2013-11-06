@@ -5,7 +5,7 @@
 -include("gaucho_webmethod.hrl").
 -include("swagger.hrl").
 
--export([process/3, parse_transform/2, start/2, generate_api/1, generate_swagger_api/1]).
+-export([process/3, parse_transform/2, start/2, generate_api/1, generate_swagger_api/3]).
 
 parse_transform(Forms, Options) ->
     gaucho_pt:parse_transform(Forms, Options).
@@ -108,7 +108,7 @@ generate_swagger_parameters(GauchoParamsSpec) ->
                 end
         end, [], GauchoParamsSpec).
 
-generate_swagger_api(Mapping) ->
+generate_swagger_api(Mapping, Host, Port) ->
     Res = lists:foldl(fun(#webmethod{raw_path = RawPath_, http_methods = [Method], param_spec = ParamsSpec} = _WebMethod, Acc)-> 
 
                 RawPath = xl_convert:to(binary, RawPath_), 
@@ -123,8 +123,7 @@ generate_swagger_api(Mapping) ->
                 end
         end, [], Mapping),
 
-
-    {ok, #swagger{apiVersion = <<"1.0">>,
+    {ok, #swagger{apiVersion = <<"1.0">>, basePath = xl_string:join([<<"http://">>, Host, <<":">>, Port], <<"">>),
             apis = Res}}.
     % Calls = lists:map(fun(#webmethod{http_methods = Methods, raw_path = RawPath, param_spec = ParamSpec, result_type = ResultType}) ->
         % xl_string:format("~s ~p~n\tParams: ~p~n\tOutputSpec: ~p ~n", [RawPath, Methods, ParamSpec, ResultType])
